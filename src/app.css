@@ -1,0 +1,139 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.app__title {
+  margin: 0 1rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.app__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.app__settings-button {
+  min-height: 3rem;
+  margin-right: 0.5rem;
+  padding: 0 1.1rem;
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 600;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Hover is a mouse-only affordance. */
+html[data-input-mode="mouse"] .app__settings-button {
+  cursor: pointer;
+}
+
+html[data-input-mode="mouse"] .app__settings-button:hover {
+  border-color: var(--focus-ring);
+}
+
+.app__body {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "channels"
+    "sidebar";
+}
+
+@media (min-width: 769px) {
+  .app__header {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .app__body {
+    grid-template-columns: 20% 80%;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "sidebar channels";
+  }
+
+  .app__title {
+    font-size: 1.875rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .app__header {
+    padding: 1.25rem 2.5rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  .app__title {
+    font-size: 2.125rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .app__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app__title {
+    margin: 0 0 1rem;
+  }
+}
+
+/* Flex fallback for Chromium 56-era Tizen: unprefixed Grid needs Chromium 57+. */
+@supports not (display: grid) {
+  .app__body {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+
+  .channels {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .categories {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 769px) {
+  @supports not (display: grid) {
+    .app__body {
+      flex-direction: row;
+    }
+
+    .categories {
+      flex: 0 0 20%;
+      width: 20%;
+    }
+
+    .channels {
+      flex: 1 1 80%;
+      width: 80%;
+    }
+  }
+}
