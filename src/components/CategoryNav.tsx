@@ -27,7 +27,7 @@ export function CategoryNav({
 
   return (
     <nav class="categories" aria-label="Categories">
-      <h2 class="categories__title">Categories</h2>
+      <h2 class="categories__title">Browse</h2>
 
       {showLoading ? (
         <p class="categories__status" role="status">

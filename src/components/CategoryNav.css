@@ -1,22 +1,23 @@
 .categories {
   grid-area: sidebar;
+  min-width: 0;
   min-height: 0;
-  padding: 0.5rem;
-  background-color: var(--bg-secondary);
+  padding: 0.5rem 0.75rem;
   border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-primary);
 }
 
 .categories__title {
   display: none;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.85rem;
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
-/* Mobile: a single horizontally scrollable strip. */
+/* Mobile: a single horizontally scrollable strip of pills. */
 .categories__list {
   display: flex;
   flex-direction: row;
@@ -24,6 +25,11 @@
   padding: 6px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.categories__list::-webkit-scrollbar {
+  display: none;
 }
 
 .categories__item {
@@ -32,15 +38,14 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 4.25rem;
-  min-height: 3rem;
-  margin-right: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  border: 0;
-  border-radius: var(--radius-sm);
+  min-height: 2.5rem;
+  margin-right: 0.4rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
   background-color: transparent;
   color: var(--text-muted);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.2;
   text-align: center;
@@ -60,8 +65,9 @@
 }
 
 .categories__item--active {
-  background-color: var(--bg-elevated);
-  color: var(--text-main);
+  border-color: var(--focus-ring);
+  background-color: var(--focus-ring);
+  color: var(--bg-primary);
 }
 
 .categories__status {
@@ -90,7 +96,7 @@
 
 @media (min-width: 769px) {
   .categories {
-    padding: 1.25rem 1rem;
+    padding: 1.5rem 0.75rem 1.5rem 1.5rem;
     overflow-y: auto;
     border-top: 0;
     border-right: 1px solid var(--border-subtle);
@@ -112,10 +118,13 @@
     justify-content: flex-start;
     width: 100%;
     min-height: 2.75rem;
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.3rem;
     padding: 0 0.75rem;
-    color: var(--text-main);
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
     font-size: 0.9375rem;
+    font-weight: 600;
     text-align: left;
   }
 
@@ -126,12 +135,17 @@
   .categories__item::before {
     content: "";
     flex: 0 0 auto;
-    width: 0.5rem;
-    height: 0.5rem;
-    margin-right: 0.625rem;
-    border-radius: 50%;
+    width: 3px;
+    height: 1.1rem;
+    margin-right: 0.7rem;
+    border-radius: 2px;
     background-color: var(--focus-ring);
-    opacity: 0.5;
+    opacity: 0;
+  }
+
+  .categories__item--active {
+    background-color: var(--bg-elevated);
+    color: var(--text-main);
   }
 
   .categories__item--active::before {
@@ -149,7 +163,10 @@ html[data-input-mode="mouse"] .categories__retry {
   cursor: pointer;
 }
 
-html[data-input-mode="mouse"] .categories__item:hover,
-html[data-input-mode="mouse"] .categories__retry:hover {
-  background-color: var(--bg-elevated);
+@media (min-width: 769px) {
+  html[data-input-mode="mouse"] .categories__item:hover,
+  html[data-input-mode="mouse"] .categories__retry:hover {
+    background-color: var(--bg-elevated);
+    color: var(--text-main);
+  }
 }

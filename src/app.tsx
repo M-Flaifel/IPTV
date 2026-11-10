@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { ThemeToggle } from './components/ThemeToggle';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'preact/hooks';
 import { CategoryNav } from './components/CategoryNav';
 import { ChannelGrid } from './components/ChannelGrid';
-import { SettingsScreen } from './components/SettingsScreen';
+import { HomeScreen } from './components/HomeScreen';
+import { SectionScreen } from './components/SectionScreen';
+import { TopNav } from './components/TopNav';
 import { SpatialNavigation } from './hooks/useSpatialNavigation';
 import { ALL_CATEGORY, ALL_CATEGORY_ID } from './types';
-import type { Category, Channel, XtreamConfig } from './types';
+import type { Category, Channel, Section, ViewTarget, XtreamConfig } from './types';
 import {
   configKey,
   loadConfig,
@@ -33,42 +40,80 @@ function errorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
+type View = 'home' | Section;
+
 export function App() {
   const [config, setConfig] = useState<XtreamConfig | null>(loadConfig);
-  const [settingsOpen, setSettingsOpen] = useState(!config);
+  const [view, setView] = useState<View>('home');
+  const [lastSection, setLastSection] = useState<Section>('live');
 
   const handleSave = useCallback((next: XtreamConfig) => {
     saveConfig(next);
     setConfig(next);
-    setSettingsOpen(false);
   }, []);
 
-  if (!config || settingsOpen) {
+  const openSection = useCallback((section: Section) => {
+    setLastSection(section);
+    setView(section);
+  }, []);
+
+  const goHome = useCallback(() => {
+    setView('home');
+  }, []);
+
+  const navigate = useCallback(
+    (target: ViewTarget) => {
+      if (target === 'home') {
+        setView('home');
+        return;
+      }
+
+      setLastSection(target);
+      setView(target);
+    },
+    []
+  );
+
+  if (!config || view === 'home') {
     return (
-      <SettingsScreen
-        initial={config}
-        canClose={Boolean(config)}
+      <HomeScreen
+        config={config}
+        lastSection={lastSection}
         onSave={handleSave}
-        onClose={() => setSettingsOpen(false)}
+        onSelect={openSection}
+        onNavigate={navigate}
+      />
+    );
+  }
+
+  if (view === 'live') {
+    return (
+      <Browser
+        key={configKey(config)}
+        config={config}
+        onHome={goHome}
+        onNavigate={navigate}
       />
     );
   }
 
   return (
-    <Browser
-      key={configKey(config)}
+    <SectionScreen
+      section={view}
       config={config}
-      onOpenSettings={() => setSettingsOpen(true)}
+      onHome={goHome}
+      onNavigate={navigate}
     />
   );
 }
 
 interface BrowserProps {
   config: XtreamConfig;
-  onOpenSettings: () => void;
+  onHome: () => void;
+  onNavigate: (target: ViewTarget) => void;
 }
 
-function Browser({ config, onOpenSettings }: BrowserProps) {
+function Browser({ config, onHome, onNavigate }: BrowserProps) {
   const accountKey = configKey(config);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -85,6 +130,14 @@ function Browser({ config, onOpenSettings }: BrowserProps) {
 
   const streamCache = useRef(new Map<string, Channel[]>());
   const streamRequest = useRef(0);
+
+  // Entering the browser should not drop focus to <body>.
+  useLayoutEffect(() => {
+    const firstCategory = document.querySelector('[data-spatial="sidebar"]');
+    if (firstCategory instanceof HTMLElement) {
+      firstCategory.focus();
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,21 +256,8 @@ function Browser({ config, onOpenSettings }: BrowserProps) {
 
   return (
     <main class="app">
-      <SpatialNavigation />
-      <header class="app__header">
-        <h1 class="app__title">Flaifel's Entertainment</h1>
-        <div class="app__actions">
-          <button
-            type="button"
-            class="app__settings-button"
-            data-spatial="header"
-            onClick={onOpenSettings}
-          >
-            Settings
-          </button>
-          <ThemeToggle />
-        </div>
-      </header>
+      <SpatialNavigation onBack={onHome} />
+      <TopNav active="live" config={config} onNavigate={onNavigate} />
 
       <div class="app__body">
         <CategoryNav

@@ -23,6 +23,11 @@
   --focus-ring-width: 3px;
   --focus-ring-offset: 3px;
 
+  /* Artwork tints. Themes may override these; the gradients stay CSS-only. */
+  --art-live: #1f6feb;
+  --art-movies: #d1344b;
+  --art-series: #7b4dff;
+
   /* Classic Guide (default) */
   color-scheme: dark;
   --bg-primary: #0b1a2b;
@@ -43,6 +48,9 @@
   --focus-ring: #c9302c;
   --bg-elevated: #fdfaf3;
   --border-subtle: #c9bfab;
+  --art-live: #1d5fd1;
+  --art-movies: #c02a3c;
+  --art-series: #6a3ed1;
 }
 
 [data-theme="ember"] {

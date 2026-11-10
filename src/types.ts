@@ -23,3 +23,7 @@ export const ALL_CATEGORY: Category = {
   id: ALL_CATEGORY_ID,
   name: 'All',
 };
+
+export type Section = 'live' | 'movies' | 'series';
+
+export type ViewTarget = 'home' | Section;

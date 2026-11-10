@@ -355,7 +355,9 @@ function isSpatial(element: EventTarget | null): element is HTMLElement {
   return element instanceof HTMLElement && element.hasAttribute('data-spatial');
 }
 
-export function useSpatialNavigation(): SpatialPosition {
+export function useSpatialNavigation(
+  onBack?: () => void
+): SpatialPosition {
   const { setMode } = useInputMode();
   const [position, setPosition] = useState<SpatialPosition>({
     group: null,
@@ -383,13 +385,16 @@ export function useSpatialNavigation(): SpatialPosition {
         return;
       }
 
-      if (isTypingTarget(event.target)) {
-        return;
-      }
+      const direction = directionFromEvent(event);
 
       // Back from the channel grid returns to the active category, which is
-      // where the user came from. Let the platform handle Back everywhere else.
+      // where the user came from. Back anywhere else leaves the browser.
       if (isBackEvent(event)) {
+        // Backspace edits text instead of navigating while an input is focused.
+        if (isTypingTarget(event.target)) {
+          return;
+        }
+
         const focused = document.activeElement;
 
         if (
@@ -404,16 +409,31 @@ export function useSpatialNavigation(): SpatialPosition {
             setMode('Keyboard');
             ensureVisible(target);
             target.focus();
+            return;
           }
+        }
+
+        if (onBack) {
+          event.preventDefault();
+          onBack();
         }
 
         return;
       }
 
-      const direction = directionFromEvent(event);
-
       if (!direction) {
         return;
+      }
+
+      if (isTypingTarget(event.target)) {
+        // Single-line inputs use Up/Down for spatial movement at the form
+        // edges; the form handles movement between its own fields.
+        if (
+          !(event.target instanceof HTMLInputElement) ||
+          (direction !== 'up' && direction !== 'down')
+        ) {
+          return;
+        }
       }
 
       const elements = getSpatialElements();
@@ -453,7 +473,7 @@ export function useSpatialNavigation(): SpatialPosition {
       document.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [setMode, track]);
+  }, [setMode, track, onBack]);
 
   return position;
 }
@@ -461,8 +481,8 @@ export function useSpatialNavigation(): SpatialPosition {
 /**
  * Isolated driver so focus movement does not re-render the app shell.
  */
-export function SpatialNavigation() {
-  useSpatialNavigation();
+export function SpatialNavigation({ onBack }: { onBack?: () => void }) {
+  useSpatialNavigation(onBack);
   return null;
 }
 

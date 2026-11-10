@@ -17,10 +17,26 @@ const CARD_MIN_REM = 13;
 const GAP_REM = 0.75;
 const CARD_HEIGHT_REM = 4.75;
 const ROW_HEIGHT_REM = CARD_HEIGHT_REM + GAP_REM;
+// Keep roughly one screen of rows plus overscan in the DOM at any viewport.
+const MAX_RENDERED_ROWS = 12;
+const MAX_OVERSCAN = 2;
+const ART_VARIANTS = 6;
 
 interface GridLayout {
   columns: number;
   rowHeight: number;
+  overscan: number;
+}
+
+function channelVariant(channel: Channel): number {
+  const key = channel.id || channel.name;
+  let hash = 0;
+
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+
+  return Math.abs(hash) % ART_VARIANTS;
 }
 
 function channelInitials(name: string): string {
@@ -56,6 +72,7 @@ export function ChannelGrid({
   const [layout, setLayout] = useState<GridLayout>({
     columns: 1,
     rowHeight: ROW_HEIGHT_REM * 16,
+    overscan: MAX_OVERSCAN,
   });
 
   const rows = useMemo(
@@ -67,7 +84,7 @@ export function ChannelGrid({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => layout.rowHeight,
-    overscan: 2,
+    overscan: layout.overscan,
     useFlushSync: false,
     // Scroll-only updates are written straight to the DOM instead of
     // re-rendering every visible row on each scroll event.
@@ -92,11 +109,21 @@ export function ChannelGrid({
         Math.floor((innerWidth + gap) / (minCard + gap))
       );
       const rowHeight = rem * ROW_HEIGHT_REM;
+      const visibleRows = Math.max(1, Math.ceil(element.clientHeight / rowHeight));
+      const overscan = Math.max(
+        1,
+        Math.min(
+          MAX_OVERSCAN,
+          Math.floor((MAX_RENDERED_ROWS - visibleRows) / 2)
+        )
+      );
 
       setLayout((current) =>
-        current.columns === columns && current.rowHeight === rowHeight
+        current.columns === columns &&
+        current.rowHeight === rowHeight &&
+        current.overscan === overscan
           ? current
-          : { columns, rowHeight }
+          : { columns, rowHeight, overscan }
       );
     };
 
@@ -106,7 +133,9 @@ export function ChannelGrid({
     return () => {
       window.removeEventListener('resize', update);
     };
-  }, []);
+    // The grid only exists once a category has loaded, so re-measure when the
+    // status or channel list changes to pick up the mounted scroll element.
+  }, [status, channels.length]);
 
   useEffect(() => {
     virtualizer.measure();
@@ -124,9 +153,12 @@ export function ChannelGrid({
   return (
     <section class="channels" aria-labelledby="channels-title">
       <header class="channels__header">
-        <h2 class="channels__title" id="channels-title">
-          {title}
-        </h2>
+        <div class="channels__heading">
+          <p class="channels__eyebrow">Live TV</p>
+          <h2 class="channels__title" id="channels-title">
+            {title}
+          </h2>
+        </div>
         <p class="channels__count">
           {status === 'ready'
             ? `${channels.length} ${channels.length === 1 ? 'channel' : 'channels'}`
@@ -181,7 +213,7 @@ export function ChannelGrid({
                   {items.map((channel, column) => (
                     <button
                       type="button"
-                      class="channel-card"
+                      class={`channel-card channel-card--v${channelVariant(channel)}`}
                       data-spatial="channels"
                       key={`${channel.id}-${startIndex + column}`}
                     >
