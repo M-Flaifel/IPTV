@@ -1,0 +1,77 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-width: 10.5rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Hover is a mouse-only affordance. */
+html[data-input-mode="mouse"] .theme-toggle {
+  cursor: pointer;
+}
+
+html[data-input-mode="mouse"] .theme-toggle:hover {
+  border-color: var(--focus-ring);
+}
+
+.theme-toggle:active {
+  background-color: var(--bg-elevated);
+}
+
+.theme-toggle__swatch {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.75rem;
+  border: 2px solid var(--focus-ring);
+  border-radius: 50%;
+  background-color: var(--bg-primary);
+}
+
+.theme-toggle__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.theme-toggle__caption {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.theme-toggle__value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .theme-toggle {
+    min-width: 0;
+    padding: 0.3rem 0.75rem;
+  }
+
+  .theme-toggle__swatch {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.5rem;
+  }
+
+  .theme-toggle__caption {
+    display: none;
+  }
+
+  .theme-toggle__value {
+    font-size: 0.8125rem;
+  }
+}

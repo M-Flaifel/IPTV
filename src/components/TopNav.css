@@ -1,0 +1,155 @@
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-primary);
+}
+
+.top-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.5rem 0 0;
+  border: 0;
+  background-color: transparent;
+  color: var(--text-main);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Hover is a mouse-only affordance. */
+html[data-input-mode="mouse"] .top-nav__brand {
+  cursor: pointer;
+}
+
+.top-nav__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0.6rem;
+  border-radius: 6px;
+  background-color: var(--focus-ring);
+  color: var(--bg-primary);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.top-nav__wordmark {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.top-nav__dot {
+  color: var(--focus-ring);
+}
+
+.top-nav__links {
+  order: 3;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0.45rem -0.25rem -0.15rem;
+  padding: 0.15rem 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.top-nav__links::-webkit-scrollbar {
+  display: none;
+}
+
+.top-nav__link {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  margin-right: 0.15rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.top-nav__link:last-child {
+  margin-right: 0;
+}
+
+.top-nav__link--active {
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+}
+
+.top-nav__link[disabled] {
+  opacity: 0.35;
+}
+
+.top-nav__end {
+  margin-left: auto;
+}
+
+/* Hover is a mouse-only affordance. */
+html[data-input-mode="mouse"] .top-nav__link:not([disabled]) {
+  cursor: pointer;
+}
+
+html[data-input-mode="mouse"] .top-nav__link:not([disabled]):hover {
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+}
+
+@media (min-width: 769px) {
+  .top-nav {
+    flex-wrap: nowrap;
+    padding: 0.85rem 1.5rem;
+  }
+
+  .top-nav__links {
+    order: 2;
+    flex: 1 1 auto;
+    width: auto;
+    margin: 0 1.5rem;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .top-nav__link {
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    font-size: 0.75rem;
+  }
+
+  .top-nav__end {
+    order: 3;
+  }
+}
+
+@media (min-width: 1200px) {
+  .top-nav {
+    padding: 0.85rem 2.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .top-nav__wordmark {
+    display: none;
+  }
+}

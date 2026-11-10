@@ -1,0 +1,67 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+.app__body {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "channels"
+    "sidebar";
+}
+
+@media (min-width: 769px) {
+  .app__body {
+    grid-template-columns: 16rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "sidebar channels";
+  }
+}
+
+@media (min-width: 1200px) {
+  .app__body {
+    grid-template-columns: 17.5rem minmax(0, 1fr);
+  }
+}
+
+/* Flex fallback for Chromium 56-era Tizen: unprefixed Grid needs Chromium 57+. */
+@supports not (display: grid) {
+  .app__body {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+
+  .channels {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .categories {
+    flex: 0 0 auto;
+  }
+}
+
+@media (min-width: 769px) {
+  @supports not (display: grid) {
+    .app__body {
+      flex-direction: row;
+    }
+
+    .categories {
+      flex: 0 0 16rem;
+      width: 16rem;
+    }
+
+    .channels {
+      flex: 1 1 auto;
+    }
+  }
+}

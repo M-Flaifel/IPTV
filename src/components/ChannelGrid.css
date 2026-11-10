@@ -1,0 +1,274 @@
+.channels {
+  grid-area: channels;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+}
+
+@media (min-width: 769px) {
+  .channels {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  .channels {
+    padding: 2rem 2.5rem;
+  }
+}
+
+.channels__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  margin-bottom: 1rem;
+}
+
+.channels__heading {
+  min-width: 0;
+}
+
+.channels__eyebrow {
+  margin: 0 0 0.3rem;
+  color: var(--focus-ring);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.channels__title {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 769px) {
+  .channels__title {
+    font-size: 2rem;
+  }
+}
+
+.channels__count {
+  flex: 0 0 auto;
+  margin: 0 0 0.2rem 1rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.channels__count:empty {
+  display: none;
+}
+
+.channels__status {
+  margin: 0;
+  padding: 1rem 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.channels__status p {
+  margin: 0 0 0.75rem;
+}
+
+.channels__retry {
+  min-height: 2.5rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.channel-grid {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Keeps the focus outline inside the scroll container without shifting the
+     cards away from the header. Offset = focus width + focus offset. */
+  margin: -6px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.channel-grid__spacer {
+  position: relative;
+  width: 100%;
+}
+
+/* Rows are absolutely positioned by the virtualizer (top/left stay at 0). */
+.channel-grid__row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 100%;
+  padding-bottom: 0.75rem;
+}
+
+.channel-grid__row > :last-child {
+  margin-right: 0;
+}
+
+.channel-grid__filler {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-right: 0.75rem;
+}
+
+.channel-card {
+  --card-art: var(--art-live);
+
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 4.75rem;
+  margin-right: 0.75rem;
+  padding: 0.7rem 0.7rem 0.7rem 0.95rem;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.channel-card--v1 {
+  --card-art: var(--art-movies);
+}
+
+.channel-card--v2 {
+  --card-art: var(--art-series);
+}
+
+.channel-card--v3 {
+  --card-art: var(--focus-ring);
+}
+
+.channel-card--v4::before {
+  background-image: linear-gradient(
+    180deg,
+    var(--art-live) 0%,
+    var(--art-series) 100%
+  );
+}
+
+.channel-card--v5::before {
+  background-image: linear-gradient(
+    180deg,
+    var(--art-movies) 0%,
+    var(--art-series) 100%
+  );
+}
+
+.channel-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background-color: var(--card-art);
+  opacity: 0.9;
+}
+
+/* Hover is a mouse-only affordance. */
+html[data-input-mode="mouse"] .channel-card {
+  cursor: pointer;
+}
+
+html[data-input-mode="mouse"] .channel-card:hover {
+  border-color: var(--focus-ring);
+}
+
+.channel-card__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-right: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-elevated);
+  color: var(--focus-ring);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.channel-card__body {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.channel-card__name {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-main);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-card__meta {
+  display: block;
+  margin: 0.125rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.channel-card__meta::before {
+  content: "";
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background-color: var(--focus-ring);
+  vertical-align: 0.06rem;
+}
+
+@media (max-width: 768px) {
+  .channels {
+    padding-top: 0.75rem;
+  }
+
+  .channels__title {
+    font-size: 1.25rem;
+  }
+}
