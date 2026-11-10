@@ -10,6 +10,7 @@ export interface SpatialPosition {
 }
 
 const SPATIAL_SELECTOR = '[data-spatial]';
+const SPATIAL_SCOPE_SELECTOR = '[data-spatial-scope]';
 const ROW_TOLERANCE = 8;
 const EDGE_PADDING = 8;
 
@@ -65,7 +66,11 @@ function directionFromEvent(event: KeyboardEvent): Direction | null {
 }
 
 function getSpatialElements(): HTMLElement[] {
-  const nodes = document.querySelectorAll(SPATIAL_SELECTOR);
+  // A modal (the player) narrows spatial movement to its own controls so
+  // arrows cannot escape into the screen behind it.
+  const scope = document.querySelector(SPATIAL_SCOPE_SELECTOR);
+  const root: ParentNode = scope || document;
+  const nodes = root.querySelectorAll(SPATIAL_SELECTOR);
   const elements: HTMLElement[] = [];
 
   for (let i = 0; i < nodes.length; i++) {
@@ -396,6 +401,17 @@ export function useSpatialNavigation(
         }
 
         const focused = document.activeElement;
+
+        // While a modal owns the screen, Back closes the modal instead of
+        // navigating the screen behind it.
+        if (document.querySelector(SPATIAL_SCOPE_SELECTOR)) {
+          if (onBack) {
+            event.preventDefault();
+            onBack();
+          }
+
+          return;
+        }
 
         if (
           isSpatial(focused) &&

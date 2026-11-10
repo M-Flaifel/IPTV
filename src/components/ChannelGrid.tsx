@@ -11,6 +11,7 @@ interface ChannelGridProps {
   status: ChannelStatus;
   error: string | null;
   onRetry: () => void;
+  onPlay: (channel: Channel) => void;
 }
 
 const CARD_MIN_REM = 13;
@@ -67,6 +68,7 @@ export function ChannelGrid({
   status,
   error,
   onRetry,
+  onPlay,
 }: ChannelGridProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<GridLayout>({
@@ -215,6 +217,8 @@ export function ChannelGrid({
                       type="button"
                       class={`channel-card channel-card--v${channelVariant(channel)}`}
                       data-spatial="channels"
+                      aria-label={`Play ${channel.name}`}
+                      onClick={() => onPlay(channel)}
                       key={`${channel.id}-${startIndex + column}`}
                     >
                       <span class="channel-card__logo" aria-hidden="true">

@@ -8,6 +8,7 @@ import {
 import { CategoryNav } from './components/CategoryNav';
 import { ChannelGrid } from './components/ChannelGrid';
 import { HomeScreen } from './components/HomeScreen';
+import { PlayerOverlay } from './components/PlayerOverlay';
 import { SectionScreen } from './components/SectionScreen';
 import { TopNav } from './components/TopNav';
 import { SpatialNavigation } from './hooks/useSpatialNavigation';
@@ -26,6 +27,7 @@ import {
   readCachedCategories,
   writeCachedCategories,
 } from './services/categoryCache';
+import { resolvePlaybackSource } from './services/player';
 import './app.css';
 
 function errorMessage(error: unknown): string {
@@ -130,6 +132,45 @@ function Browser({ config, onHome, onNavigate }: BrowserProps) {
 
   const streamCache = useRef(new Map<string, Channel[]>());
   const streamRequest = useRef(0);
+
+  const [playing, setPlaying] = useState<Channel | null>(null);
+  const restoreFocus = useRef<HTMLElement | null>(null);
+
+  const openPlayer = useCallback((channel: Channel) => {
+    const active = document.activeElement;
+    restoreFocus.current = active instanceof HTMLElement ? active : null;
+    setPlaying(channel);
+  }, []);
+
+  const closePlayer = useCallback(() => {
+    setPlaying(null);
+  }, []);
+
+  // Return focus to the card that opened the overlay once it unmounts.
+  useEffect(() => {
+    if (playing) {
+      return;
+    }
+
+    const target = restoreFocus.current;
+    if (!target) {
+      return;
+    }
+
+    restoreFocus.current = null;
+    if (target.isConnected) {
+      target.focus();
+    }
+  }, [playing]);
+
+  const handleBack = useCallback(() => {
+    if (playing) {
+      closePlayer();
+      return;
+    }
+
+    onHome();
+  }, [playing, closePlayer, onHome]);
 
   // Entering the browser should not drop focus to <body>.
   useLayoutEffect(() => {
@@ -256,7 +297,7 @@ function Browser({ config, onHome, onNavigate }: BrowserProps) {
 
   return (
     <main class="app">
-      <SpatialNavigation onBack={onHome} />
+      <SpatialNavigation onBack={handleBack} />
       <TopNav active="live" config={config} onNavigate={onNavigate} />
 
       <div class="app__body">
@@ -274,8 +315,18 @@ function Browser({ config, onHome, onNavigate }: BrowserProps) {
           status={channelStatus}
           error={channelError}
           onRetry={retryStreams}
+          onPlay={openPlayer}
         />
       </div>
+
+      {playing ? (
+        <PlayerOverlay
+          key={playing.id}
+          channel={playing}
+          source={resolvePlaybackSource(config, playing)}
+          onClose={closePlayer}
+        />
+      ) : null}
     </main>
   );
 }

@@ -27,11 +27,16 @@ than silently relaxing it.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
 - Netflix/Disney/HBO-inspired visual redesign using CSS-only artwork.
+- Live channel preview overlay: selecting a card opens a player shell with a
+  bundled mock MP4, and Back closes it with focus restored to the card. This
+  validates the player UI, not real streaming.
 
 ### Not implemented
 
-- **Playback.** Channel cards have no click handler, player, stream URL
-  construction, or HLS/TS handling.
+- **Real playback.** The overlay is a UI shell driven by a bundled mock MP4.
+  `src/services/player.ts` has the Xtream stream URL builder, but no panel
+  stream is played yet. HLS (option A fallback) and native AVPlay/ExoPlayer
+  (option B target) are not wired.
 - **Movies and Series catalogs.** Those views are intentional visual
   placeholders. `get_vod_categories`, `get_vod_streams`,
   `get_series_categories`, and `get_series` are not wired.
@@ -119,6 +124,8 @@ should be justified against that hardware.
   - `Escape`, `Backspace`, and key code `10009` (Tizen remote) are Back.
   - Backspace edits text while a text input is focused.
   - From the channel grid, Back returns focus to the active category.
+  - From the player overlay, Back closes it and restores focus to the channel
+    card that opened it.
   - From Live, Back returns to Home.
   - From Movies/Series, Back returns to Home.
 - Home entry focus: hero primary CTA when keyboard mode is active. First-run
@@ -177,6 +184,7 @@ src/hooks/useSpatialNavigation.ts
                            Arrow focus movement, Back handling, form edges
 src/services/http.ts       HTTP transport seam (fetch by default)
 src/services/xtream.ts     Xtream queries and normalization
+src/services/player.ts     Playback seam: stream URL builder, mock source
 src/services/categoryCache.ts
                            IndexedDB category cache
 src/services/config.ts     Credential load/save/validation, config key
@@ -189,6 +197,8 @@ src/components/CategoryNav.*
                            Desktop rail and mobile pill strip
 src/components/ChannelGrid.*
                            Virtualized channel cards
+src/components/PlayerOverlay.*
+                           Modal preview player and focus restore
 src/components/SectionScreen.*
                            Movies/Series placeholders
 src/components/ThemeToggle.*
@@ -206,6 +216,8 @@ localStorage ──> config ──> Home (default view)
                               │             └─ select category
                               │                  └─ memory cache or get_live_streams
                               │                       └─ virtualized ChannelGrid
+                              │                            └─ select channel
+                              │                                 └─ PlayerOverlay (mock MP4)
                               ├─ Movies ──> placeholder
                               └─ Series ──> placeholder
 ```
@@ -252,6 +264,10 @@ Dev-only Xtream proxy:
 A mock Xtream panel may be used for manual testing. It is not part of the
 repository; do not commit test credentials or mock data into `src/`.
 
+`public/mock-stream.mp4` is the bundled preview clip for the player shell. It is
+the CC0 “flower” sample from MDN's interactive examples. It exists only to test
+the overlay, focus restore, and Back behavior until a real player engine lands.
+
 ---
 
 ## 5. Verification checklist
@@ -275,6 +291,9 @@ Manual checks:
 - [ ] Live: categories load; selecting a category fetches streams; only ~12
       rows are in the DOM; Back from the grid returns to the active category;
       Back from Live returns Home.
+- [ ] Player: Enter/click on a card opens the overlay and starts the preview;
+      Play/Pause toggles; arrows stay inside the overlay; Back closes it and
+      restores focus to the same card; the overlay has no animation or blur.
 - [ ] Movies/Series: placeholder screens render, nav active state is correct,
       Back returns Home.
 - [ ] Theme: Left/Right cycles while the theme control is focused; focus stays
@@ -289,9 +308,11 @@ Manual checks:
 
 ## 6. Known gaps and deferred work
 
-1. **Playback** — highest-priority missing feature. Needs stream URL
-   construction and an HLS/TS-capable player that works on Tizen. Do not bolt
-   on a heavy web player without evaluating TV support.
+1. **Real playback** — highest-priority missing feature. The preview overlay and
+   stream URL builder exist; the engine does not. Target native AVPlay on Tizen
+   (option B). HLS via `hls.js` is a desktop/Android fallback (option A) and
+   needs approval plus a TV performance check. Do not bolt on a heavy web player
+   without evaluating TV support.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
    preserving the current navigation and performance rules.
 3. **Production transport/CORS** — install a native transport via
@@ -311,6 +332,8 @@ Manual checks:
 - Preserve the existing CSS token names and theme behavior.
 - When adding a layout, write the Grid path first and the flex fallback second.
 - When adding a control, add `data-spatial` and verify arrow/Back behavior.
+- Modals own spatial movement: put `data-spatial-scope` on the modal root so
+  arrows cannot reach the screen behind it, and let Back close it.
 - Keep hover rules behind `html[data-input-mode="mouse"]`.
 - Keep new copy short and TV-readable; avoid remote assets.
 - If a proposed feature needs a new dependency, animation, image pipeline, or
