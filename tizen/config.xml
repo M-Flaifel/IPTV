@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tizen TV widget manifest for the Samsung Smart TV package.
+
+  - Package id `MFlaifelTV` (10 characters) must stay stable forever: a
+    different package installs a second app instead of updating this one.
+  - `required_version` 2.4 keeps the 2018 models (Tizen 4.0) in range.
+  - `access origin="*"` allows panel/stream requests to the user-supplied
+    Xtream host; production fetches go through it instead of the dev proxy.
+  - `avplay` is the Samsung Product API privilege AVPlay playback requires.
+  - `hwkey-event` lets the remote's Return key reach the app as key code
+    10009, which `useSpatialNavigation` treats as Back.
+  - The version must be bumped together with package.json so TV installs
+    replace older widgets.
+-->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+        id="https://github.com/M-Flaifel/IPTV" version="0.1.0" viewmodes="fullscreen">
+    <access origin="*" subdomains="true"/>
+    <tizen:application id="MFlaifelTV.IPTV" package="MFlaifelTV" required_version="2.4"/>
+    <content src="index.html"/>
+    <description>Flaifel's Entertainment: Xtream live TV browser.</description>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <icon src="icon.png"/>
+    <name>Flaifel's Entertainment</name>
+    <tizen:metadata key="http://tizen.org/metadata/app_ui_type/base_screen_resolution" value="fullscreen"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/avplay"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
+                  encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

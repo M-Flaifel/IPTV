@@ -36,19 +36,21 @@ than silently relaxing it.
 
 ### Not implemented
 
-- **Real playback beyond Tizen AVPlay.** The AVPlay adapter is written but not
-  yet tested on a TV, and the Tizen package must load
-  `$WEBAPIS/webapis/webapis.js` before the app bundle. The browser build still
-  previews the mock MP4. Tauri (libmpv) and Capacitor (ExoPlayer) are not wired.
-  HLS via `hls.js` remains an unapproved fallback.
+- **Real playback beyond Tizen AVPlay.** The AVPlay adapter is written and the
+  widget now packageable (`npm run build:tizen`), but playback has not been
+  verified on the TV itself. The browser build still previews the mock MP4.
+  Tauri (libmpv) and Capacitor (ExoPlayer) are not wired. HLS via `hls.js`
+  remains an unapproved fallback.
 - **Movies and Series catalogs.** Those views are intentional visual
   placeholders. `get_vod_categories`, `get_vod_streams`,
   `get_series_categories`, and `get_series` are not wired.
-- **Packaging.** No Tauri, Capacitor, or Tizen wrapper yet. Production Xtream
-  calls still depend on panel CORS; `src/services/http.ts` is the seam for a
-  native transport.
-- **Tizen 4.0 script compatibility.** Vite emits `<script type="module">`,
-  which Chromium 56 cannot execute. See `DEFERRED.md`.
+- **Desktop and Android packaging.** Tauri and Capacitor wrappers do not exist
+  yet. Production Xtream calls still depend on panel CORS; `src/services/http.ts`
+  is the seam for a native transport.
+- **Tizen on-device verification.** The tizen build emits a classic deferred
+  script for Chromium 56 and the widget installs unsigned via Apps2Samsung,
+  but nothing has run on the 2018 TV yet. The 960×540 CSS viewport is the main
+  verify item. See `DEFERRED.md`.
 
 Do not describe the app as complete, playable, or VOD-capable until those gaps
 are actually closed.
@@ -257,10 +259,11 @@ Requirements: Node.js and npm.
 
 ```bash
 npm install
-npm run dev        # Vite dev server, default http://localhost:5173
-npm run typecheck  # tsc --noEmit
-npm run build      # typecheck + production build
-npm run preview    # preview the production build
+npm run dev         # Vite dev server, default http://localhost:5173
+npm run typecheck   # tsc --noEmit
+npm run build       # typecheck + production build
+npm run build:tizen # typecheck + widget build -> IPTV.wgt (unsigned)
+npm run preview     # preview the production build
 ```
 
 Dev-only Xtream proxy:
@@ -279,8 +282,50 @@ the overlay, focus restore, and Back behavior until a real player engine lands.
 
 Playback picks its engine at runtime. A packaged Tizen app that exposes
 `window.webapis.avplay` uses the AVPlay adapter and the real Xtream stream; a
-browser preview never defines `webapis`, so it stays on the mock MP4. The Tizen
-package must load `$WEBAPIS/webapis/webapis.js` before the app bundle.
+browser preview never defines `webapis`, so it stays on the mock MP4. The
+`$WEBAPIS/webapis/webapis.js` bridge is injected automatically in tizen mode;
+see below.
+
+### Samsung Tizen packaging
+
+`npm run build:tizen` typechecks, builds with `--mode tizen`, regenerates
+`tizen/icon.png`, and writes `IPTV.wgt` at the repo root. The widget is left
+unsigned on purpose: Apps2Samsung (or Tizen Studio's CLI) signs it during
+installation. No new dependencies are involved.
+
+What tizen mode changes (`vite.config.ts` and `scripts/`):
+
+- `base: './'` so the widget resolves assets from its package root.
+- One JS chunk, transpiled for Chromium 56 (`build.target: 'chrome56'`).
+- The emitted `index.html` gets a CSP meta plus
+  `$WEBAPIS/webapis/webapis.js` injected ahead of the bundle, and the module
+  script becomes a classic deferred script (Tizen 4.0 cannot run module
+  scripts).
+- `scripts/package-tizen.mjs` zips `dist-tizen/` plus `tizen/config.xml` and
+  `tizen/icon.png` into `IPTV.wgt`, with `config.xml` at the archive root as
+  Tizen requires.
+- `scripts/make-tizen-icon.mjs` renders the 512×512 app icon from the brand
+  colors in `src/styles/themes.css`.
+
+`tizen/config.xml` rules:
+
+- The `MFlaifelTV` package id must stay stable forever; changing it installs a
+  second app instead of updating. Its version must be bumped together with
+  `package.json` (the packager warns on mismatch).
+
+Install/update loop (Apps2Samsung):
+
+1. One-time TV setup: Settings → System Manager → Developer Mode on, with the
+   PC's IP entered, then let the TV restart. TV and PC must share the network.
+2. Apps2Samsung → scan → select the TV → **Custom WGT** → `IPTV.wgt`. Sign in
+   with the Samsung account once; the signing certificate is reused after
+   that.
+3. Updates: bump the version in `package.json` **and** `tizen/config.xml`,
+   rebuild, install again. Keep the widget private; never submit it to
+   Apps2Samsung's public catalog, since it points at a private panel.
+4. Use Apps2Samsung's debug console for AVPlay logs.
+
+`dist-tizen/` and `IPTV.wgt` are build output and ignored by git.
 
 ---
 
@@ -291,6 +336,7 @@ Run before declaring work done:
 ```bash
 npm run typecheck
 npm run build
+npm run build:tizen
 ```
 
 Manual checks:
@@ -320,24 +366,30 @@ Manual checks:
 - [ ] No console errors.
 - [ ] No horizontal overflow at 375×667, 912×670, and 1920×1080.
 - [ ] No new animations, blurs, remote artwork images, or unvirtualized lists.
+- [ ] Widget package: `tar -tf IPTV.wgt` lists `config.xml`, `index.html`,
+      `icon.png` at the archive root, and `dist-tizen/index.html` loads
+      `$WEBAPIS/webapis/webapis.js` before a classic (non-module) deferred
+      bundle script.
 
 ---
 
 ## 6. Known gaps and deferred work
 
-1. **Tizen AVPlay verification and packaging** — the adapter exists and is
-   auto-selected when `window.webapis.avplay` is present, but it has only been
-   exercised against a simulated `webapis` object. Next: package the Tizen app,
-   load `$WEBAPIS/webapis/webapis.js` before the bundle, and test HLS,
-   pause/resume, and Back teardown on the 2018 TV. Tauri (libmpv) and Capacitor
-   (ExoPlayer) adapters come later. HLS via `hls.js` remains an unapproved
-   desktop fallback.
+1. **Tizen AVPlay on-device verification** — the widget builds and installs
+   unsigned via Apps2Samsung, but AVPlay has only been exercised against a
+   simulated `webapis` object. Test HLS playback, pause/resume, and Back
+   teardown on the 2018 TV, using Apps2Samsung's debug console for logs.
+   `setDisplayRect` now scales the CSS rect into AVPlay's 1920×1080 coordinate
+   space (2018 models run web apps at 960×540); confirm the video covers its
+   host element on the TV. Tauri (libmpv) and Capacitor (ExoPlayer) adapters
+   come later. HLS via `hls.js` remains an unapproved desktop fallback.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
    preserving the current navigation and performance rules.
 3. **Production transport/CORS** — install a native transport via
    `setHttpTransport` in packaged builds.
-4. **Tizen legacy JS** — add legacy transpilation before Tizen packaging; see
-   `DEFERRED.md`.
+4. **Tizen legacy JS** — handled for the widget build: tizen mode rewrites the
+   entry to a classic deferred script and transpiles for Chromium 56. Pending
+   on-device verification; see `DEFERRED.md`.
 5. **Self-hosted brand font** — deferred; ask the user before implementing.
    The current stack uses system fonts only.
 6. **Plain-text credentials** — stored in `localStorage` by design for this
@@ -359,4 +411,5 @@ Manual checks:
   non-trivial DOM growth, stop and ask the user first.
 - The nested `IPTV/` directory is an ignored stray clone. Do not delete or
   commit it.
-- `dist/` and `node_modules/` are ignored build/install output.
+- `dist/`, `dist-tizen/`, `IPTV.wgt`, and `node_modules/` are ignored
+  build/install output.

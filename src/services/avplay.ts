@@ -87,13 +87,20 @@ export class AvPlayAdapter implements PlayerAdapter {
     const avplay = this.avplay;
     const rect = host.getBoundingClientRect();
 
+    // Samsung documents setDisplayRect coordinates as 1920x1080-based,
+    // regardless of the application's own resolution. 2018 models run web
+    // apps at a 960x540 CSS viewport, so an unscaled rect would leave the
+    // video in the top-left quarter of the screen.
+    const scaleX = screen.width > 0 ? 1920 / screen.width : 1;
+    const scaleY = screen.height > 0 ? 1080 / screen.height : 1;
+
     try {
       avplay.open(absoluteUrl(source.url));
       avplay.setDisplayRect(
-        Math.max(0, Math.round(rect.left)),
-        Math.max(0, Math.round(rect.top)),
-        Math.max(0, Math.round(rect.width)),
-        Math.max(0, Math.round(rect.height))
+        Math.max(0, Math.round(rect.left * scaleX)),
+        Math.max(0, Math.round(rect.top * scaleY)),
+        Math.max(0, Math.round(rect.width * scaleX)),
+        Math.max(0, Math.round(rect.height * scaleY))
       );
       avplay.setListener({
         onerror: () => this.fail(STREAM_ERROR),
@@ -186,8 +193,11 @@ export class AvPlayAdapter implements PlayerAdapter {
 
   private release(): void {
     try {
+      // AVPlay has exactly five states: NONE, IDLE, READY, PLAYING, PAUSED.
+      // stop() belongs to the prepared states; calling it in IDLE or NONE is
+      // at best redundant and at worst throws on 2018 firmware.
       const state = this.state();
-      if (state !== 'IDLE' && state !== 'STOPPED') {
+      if (state === 'READY' || state === 'PLAYING' || state === 'PAUSED') {
         this.avplay.stop();
       }
     } catch {

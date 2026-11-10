@@ -1,5 +1,7 @@
 node_modules
 dist
+dist-tizen
+IPTV.wgt
 *.local
 .DS_Store
 
