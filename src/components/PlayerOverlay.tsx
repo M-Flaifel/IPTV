@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { Channel } from '../types';
-import type { PlaybackSource } from '../services/player';
+import { createPlayerAdapter } from '../services/player';
+import type { PlaybackSource, PlayerAdapter } from '../services/player';
 import './PlayerOverlay.css';
 
 interface PlayerOverlayProps {
@@ -14,10 +15,15 @@ export function PlayerOverlay({
   source,
   onClose,
 }: PlayerOverlayProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const playRef = useRef<HTMLButtonElement>(null);
+  const adapterRef = useRef<PlayerAdapter | null>(null);
   const [playing, setPlaying] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  if (!adapterRef.current) {
+    adapterRef.current = createPlayerAdapter();
+  }
 
   // The overlay owns the screen, so focus starts on its primary control.
   useLayoutEffect(() => {
@@ -25,36 +31,39 @@ export function PlayerOverlay({
   }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) {
+    const adapter = adapterRef.current;
+    const host = stageRef.current;
+    if (!adapter || !host) {
       return;
     }
 
-    const attempt = video.play();
-    if (attempt && typeof attempt.catch === 'function') {
-      attempt.catch(() => {
-        setMessage('Press Play to start the preview.');
-      });
-    }
-  }, [source.url]);
+    void adapter.open(source, host, {
+      onStateChange: (state) => {
+        setPlaying(state === 'playing');
+        if (state === 'playing') {
+          setMessage(null);
+        }
+      },
+      onError: (text) => setMessage(text),
+    });
+
+    return () => {
+      adapter.close();
+    };
+    // The overlay is keyed by channel, so the source is fixed for this mount.
+  }, []);
 
   const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video) {
+    const adapter = adapterRef.current;
+    if (!adapter) {
       return;
     }
 
-    if (video.paused) {
-      const attempt = video.play();
-      if (attempt && typeof attempt.catch === 'function') {
-        attempt.catch(() => {
-          setMessage('This preview could not play.');
-        });
-      }
-      return;
+    if (adapter.isPlaying()) {
+      adapter.pause();
+    } else {
+      adapter.play();
     }
-
-    video.pause();
   };
 
   return (
@@ -71,22 +80,7 @@ export function PlayerOverlay({
       }}
     >
       <div class="player__panel">
-        <div class="player__stage">
-          <video
-            ref={videoRef}
-            class="player__video"
-            src={source.url}
-            playsInline
-            loop={source.preview}
-            preload="auto"
-            onPlay={() => {
-              setPlaying(true);
-              setMessage(null);
-            }}
-            onPause={() => setPlaying(false)}
-            onError={() => setMessage('This preview could not be loaded.')}
-          />
-
+        <div class="player__stage" ref={stageRef}>
           {source.preview ? (
             <p class="player__preview" aria-hidden="true">
               Preview

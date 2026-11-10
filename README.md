@@ -27,16 +27,20 @@ than silently relaxing it.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
 - Netflix/Disney/HBO-inspired visual redesign using CSS-only artwork.
-- Live channel preview overlay: selecting a card opens a player shell with a
-  bundled mock MP4, and Back closes it with focus restored to the card. This
-  validates the player UI, not real streaming.
+- Live channel preview overlay: selecting a card opens a player shell and Back
+  closes it with focus restored to the card.
+- Playback seam (`src/services/player.ts`) with runtime engine detection:
+  - `window.webapis.avplay` present → native Tizen AVPlay adapter and the real
+    Xtream stream URL.
+  - otherwise → standard `<video>` adapter driving the bundled mock MP4.
 
 ### Not implemented
 
-- **Real playback.** The overlay is a UI shell driven by a bundled mock MP4.
-  `src/services/player.ts` has the Xtream stream URL builder, but no panel
-  stream is played yet. HLS (option A fallback) and native AVPlay/ExoPlayer
-  (option B target) are not wired.
+- **Real playback beyond Tizen AVPlay.** The AVPlay adapter is written but not
+  yet tested on a TV, and the Tizen package must load
+  `$WEBAPIS/webapis/webapis.js` before the app bundle. The browser build still
+  previews the mock MP4. Tauri (libmpv) and Capacitor (ExoPlayer) are not wired.
+  HLS via `hls.js` remains an unapproved fallback.
 - **Movies and Series catalogs.** Those views are intentional visual
   placeholders. `get_vod_categories`, `get_vod_streams`,
   `get_series_categories`, and `get_series` are not wired.
@@ -184,7 +188,10 @@ src/hooks/useSpatialNavigation.ts
                            Arrow focus movement, Back handling, form edges
 src/services/http.ts       HTTP transport seam (fetch by default)
 src/services/xtream.ts     Xtream queries and normalization
-src/services/player.ts     Playback seam: stream URL builder, mock source
+src/services/player.ts     Playback seam: source selection, engine detection
+src/services/avplay.ts     Tizen AVPlay adapter and webapis typings
+src/services/html5Player.ts
+                           Browser `<video>` fallback for the mock MP4
 src/services/categoryCache.ts
                            IndexedDB category cache
 src/services/config.ts     Credential load/save/validation, config key
@@ -217,7 +224,9 @@ localStorage ──> config ──> Home (default view)
                               │                  └─ memory cache or get_live_streams
                               │                       └─ virtualized ChannelGrid
                               │                            └─ select channel
-                              │                                 └─ PlayerOverlay (mock MP4)
+                              │                                 └─ PlayerOverlay
+                              │                                      └─ AVPlay on Tizen,
+                              │                                         mock MP4 elsewhere
                               ├─ Movies ──> placeholder
                               └─ Series ──> placeholder
 ```
@@ -268,6 +277,11 @@ repository; do not commit test credentials or mock data into `src/`.
 the CC0 “flower” sample from MDN's interactive examples. It exists only to test
 the overlay, focus restore, and Back behavior until a real player engine lands.
 
+Playback picks its engine at runtime. A packaged Tizen app that exposes
+`window.webapis.avplay` uses the AVPlay adapter and the real Xtream stream; a
+browser preview never defines `webapis`, so it stays on the mock MP4. The Tizen
+package must load `$WEBAPIS/webapis/webapis.js` before the app bundle.
+
 ---
 
 ## 5. Verification checklist
@@ -294,6 +308,9 @@ Manual checks:
 - [ ] Player: Enter/click on a card opens the overlay and starts the preview;
       Play/Pause toggles; arrows stay inside the overlay; Back closes it and
       restores focus to the same card; the overlay has no animation or blur.
+- [ ] Tizen path: with a fake `window.webapis.avplay` installed, the overlay
+      uses AVPlay (no `<video>` element), opens the real
+      `/live/<user>/<pass>/<id>.m3u8` URL, and calls `stop`/`close` on Back.
 - [ ] Movies/Series: placeholder screens render, nav active state is correct,
       Back returns Home.
 - [ ] Theme: Left/Right cycles while the theme control is focused; focus stays
@@ -308,11 +325,13 @@ Manual checks:
 
 ## 6. Known gaps and deferred work
 
-1. **Real playback** — highest-priority missing feature. The preview overlay and
-   stream URL builder exist; the engine does not. Target native AVPlay on Tizen
-   (option B). HLS via `hls.js` is a desktop/Android fallback (option A) and
-   needs approval plus a TV performance check. Do not bolt on a heavy web player
-   without evaluating TV support.
+1. **Tizen AVPlay verification and packaging** — the adapter exists and is
+   auto-selected when `window.webapis.avplay` is present, but it has only been
+   exercised against a simulated `webapis` object. Next: package the Tizen app,
+   load `$WEBAPIS/webapis/webapis.js` before the bundle, and test HLS,
+   pause/resume, and Back teardown on the 2018 TV. Tauri (libmpv) and Capacitor
+   (ExoPlayer) adapters come later. HLS via `hls.js` remains an unapproved
+   desktop fallback.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
    preserving the current navigation and performance rules.
 3. **Production transport/CORS** — install a native transport via

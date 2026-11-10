@@ -1,4 +1,6 @@
 import type { Channel, XtreamConfig } from '../types';
+import { AvPlayAdapter, getAvPlay } from './avplay';
+import { Html5PlayerAdapter } from './html5Player';
 
 export type PlaybackKind = 'mp4' | 'hls' | 'ts';
 
@@ -9,20 +11,35 @@ export interface PlaybackSource {
   preview: boolean;
 }
 
-export type PlaybackMode = 'mock' | 'xtream';
+export type PlaybackMode = 'auto' | 'mock' | 'xtream';
 
-/**
- * Option C: the player shell is validated against a bundled MP4 before an HLS
- * or native engine is chosen. Native AVPlay (option B) will pass `'xtream'`
- * once it is installed; the overlay does not need to change.
- */
-export const DEFAULT_PLAYBACK_MODE: PlaybackMode = 'mock';
+export type PlayerEngine = 'avplay' | 'html5';
+
+export type PlayerState = 'opening' | 'playing' | 'paused' | 'error';
+
+export interface PlayerListener {
+  onStateChange: (state: PlayerState) => void;
+  onError: (message: string) => void;
+}
+
+export interface PlayerAdapter {
+  readonly engine: PlayerEngine;
+  open(
+    source: PlaybackSource,
+    host: HTMLElement,
+    listener: PlayerListener
+  ): Promise<void>;
+  play(): void;
+  pause(): void;
+  close(): void;
+  isPlaying(): boolean;
+}
 
 const MOCK_SOURCE_URL = '/mock-stream.mp4';
 
 /**
  * Xtream live streams are served from `/live/<user>/<pass>/<id>.<ext>`.
- * `.m3u8` is the container a native TV player or a future hls.js build expects.
+ * `.m3u8` is the container AVPlay expects on Tizen.
  */
 export function buildLiveStreamUrl(
   config: XtreamConfig,
@@ -37,12 +54,23 @@ export function buildLiveStreamUrl(
   return `${base}/live/${user}/${pass}/${id}.${extension}`;
 }
 
+export function hasAvPlay(): boolean {
+  return getAvPlay() !== null;
+}
+
+/**
+ * A packaged Tizen app exposes `window.webapis.avplay`, so the real Xtream
+ * stream is used. Everywhere else the browser has no HLS engine yet, so the
+ * bundled MP4 keeps the preview overlay functional.
+ */
 export function resolvePlaybackSource(
   config: XtreamConfig,
   channel: Channel,
-  mode: PlaybackMode = DEFAULT_PLAYBACK_MODE
+  mode: PlaybackMode = 'auto'
 ): PlaybackSource {
-  if (mode === 'xtream') {
+  const useXtream = mode === 'xtream' || (mode === 'auto' && hasAvPlay());
+
+  if (useXtream) {
     return {
       url: buildLiveStreamUrl(config, channel.id),
       kind: 'hls',
@@ -51,4 +79,9 @@ export function resolvePlaybackSource(
   }
 
   return { url: MOCK_SOURCE_URL, kind: 'mp4', preview: true };
+}
+
+export function createPlayerAdapter(): PlayerAdapter {
+  const avplay = getAvPlay();
+  return avplay ? new AvPlayAdapter(avplay) : new Html5PlayerAdapter();
 }
