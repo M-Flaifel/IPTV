@@ -6,7 +6,7 @@ import {
   useState,
 } from 'preact/hooks';
 import { CategoryNav } from './components/CategoryNav';
-import { ChannelGrid } from './components/ChannelGrid';
+import { ChannelList } from './components/ChannelList';
 import { HomeScreen } from './components/HomeScreen';
 import { PlayerOverlay } from './components/PlayerOverlay';
 import { PlaylistsScreen } from './components/PlaylistsScreen';
@@ -382,7 +382,7 @@ function Browser({ config, onHome, onNavigate }: BrowserProps) {
           onSelect={selectCategory}
           onRetry={() => setCategoriesReload((value) => value + 1)}
         />
-        <ChannelGrid
+        <ChannelList
           title={title}
           channels={channels}
           status={channelStatus}

@@ -35,7 +35,9 @@ than silently relaxing it.
 - Pre-0.3 single-credential storage migrates into one playlist (named after
   the panel host) on first load; the legacy key is then removed.
 - Shared top navigation across Home, Live, Movies, and Series.
-- Virtualized channel grid with ~12 rendered rows maximum.
+- Virtualized single-column channel list (0.4.0): one row per channel with
+  the channel number behind a hairline divider, the name in large display
+  type, and a Live marker; ~12 rendered rows maximum.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
 - Spatial focus movement ranks candidates by facing edges — never centers —
@@ -47,7 +49,7 @@ than silently relaxing it.
 - Live channel playback: selecting a channel opens a **fullscreen** player
   takeover; a control bar (play/pause, back) auto-hides after ~4s of playback
   and returns on any key press; Back closes it with focus restored to the
-  channel card that opened it.
+  channel row that opened it.
 - Samsung remote media keys are wired in the player: play (415), pause (19),
   play/pause (10252), and stop (413, exits the player). Space toggles in the
   browser preview. Samsung blocks media keys from web apps until they are
@@ -87,9 +89,11 @@ than silently relaxing it.
    on save (`player_api.php` login check) with inline errors; form fields
    open the on-screen keyboard only on Enter; show-password toggle; pre-0.3
    config migration.
-3. **Live TV redesign** — channels become a virtualized single-column list
-   with larger type matching the home screen's design language; category
-   sidebar restyled to match.
+3. **Live TV redesign** — shipped in 0.4.0 (pending the TV round):
+   channels are a virtualized single-column list with larger type matching
+   the home screen's design language — channel number, name, and Live marker
+   per row — and the category sidebar is restyled to match (larger items and
+   the shared eyebrow treatment).
 4. **Movies & Series VOD** — Xtream VOD endpoints (`get_vod_categories`,
    `get_vod_streams`, `get_series_categories`, `get_series`,
    `get_series_info`); movies play straight from the list; series get a
@@ -112,10 +116,11 @@ should be justified against that hardware.
   heavy shadows/box-shadows.
 - Artwork is CSS only: gradients, borders, and type. Do not introduce remote
   images or image sprites for hero/poster/card backgrounds.
-- Channel logos are currently **not rendered**; cards use generated initials.
+- Channel logos are currently **not rendered**; list rows show the channel
+  number, name, and a Live marker.
   The `logo` field exists in the data model but is unused. Do not start loading
   remote logos without measuring memory, network, and scroll cost on TV.
-- Keep the DOM small. The channel grid must stay virtualized.
+- Keep the DOM small. The channel list must stay virtualized.
 - Avoid layout work on scroll and theme change. Themes change colors only.
 
 ### Stack
@@ -173,7 +178,7 @@ should be justified against that hardware.
 - Back behavior:
   - `Escape`, `Backspace`, and key code `10009` (Tizen remote) are Back.
   - Backspace edits text while a text input is focused.
-  - From the channel grid, Back returns focus to the active category.
+  - From the channel list, Back returns focus to the active category.
   - From the player overlay, Back closes it and restores focus to the channel
     card that opened it.
   - From the playlist form, Back cancels the open field's edit; Back again
@@ -282,8 +287,8 @@ src/components/PlaylistsScreen.*
                            Playlist list (add/edit/delete/switch) and form
 src/components/CategoryNav.*
                            Desktop rail and mobile pill strip
-src/components/ChannelGrid.*
-                           Virtualized channel cards
+src/components/ChannelList.*
+                           Virtualized single-column channel list
 src/components/PlayerOverlay.*
                            Fullscreen player: auto-hiding control bar,
                            remote media keys, focus restore
@@ -305,7 +310,7 @@ localStorage ──> playlists + active id ──> Home (default view)
                                             ├─ Live ──> IndexedDB categories
                                             │             └─ select category
                                             │                  └─ memory cache or get_live_streams
-                                            │                       └─ virtualized ChannelGrid
+                                            │                       └─ virtualized ChannelList
                                             │                            └─ select channel
                                             │                                 └─ PlayerOverlay
                                             │                                      └─ AVPlay on Tizen,
@@ -323,13 +328,13 @@ localStorage ──> playlists + active id ──> Home (default view)
 
 ### Virtualization
 
-`ChannelGrid` uses `@tanstack/react-virtual` with:
+`ChannelList` uses `@tanstack/react-virtual` with:
 
-- card height `4.75rem`, row gap `0.75rem`
-- minimum card width `13rem`
+- row height `4.5rem`, row gap `0.5rem` — constant across breakpoints so the
+  JS-measured cycle always matches the CSS
 - `MAX_RENDERED_ROWS = 12`, `MAX_OVERSCAN = 2`
-- a spacer element sized by the virtualizer, absolutely positioned rows, and
-  filler elements to keep the last row aligned
+- a spacer element sized by the virtualizer, absolutely positioned rows, one
+  channel per row
 
 Do not replace this with plain mapping, pagination that grows the DOM, or
 image-heavy tiles.
@@ -356,8 +361,12 @@ Dev-only Xtream proxy:
 - This keeps the app same-origin in development and bypasses CORS.
 - It is implemented in `vite.config.ts` and applies only to `serve`.
 
-A mock Xtream panel may be used for manual testing. It is not part of the
-repository; do not commit test credentials or mock data into `src/`.
+A mock Xtream panel for manual and automated testing lives at
+`scripts/mock-panel.mjs` (`node scripts/mock-panel.mjs [port]`, default 8788).
+Seed a playlist whose `baseUrl` is `http://127.0.0.1:8788` and the dev proxy
+will serve its canned categories and streams (one oversized category forces
+the virtualizer to recycle rows). It contains no real credentials and ships
+nothing into `src/` or the widget.
 
 `public/mock-stream.mp4` is the bundled preview clip for the player shell. It is
 the CC0 “flower” sample from MDN's interactive examples. It exists only to test
@@ -448,13 +457,15 @@ Manual checks:
       named after the panel host, and the legacy key is removed.
 - [ ] Keyboard: Home CTA → ArrowDown reaches a section card → Enter opens it →
       Escape/Back returns Home with the CTA focused.
-- [ ] Live: categories load; selecting a category fetches streams; only ~12
-      rows are in the DOM; Back from the grid returns to the active category;
+- [ ] Live list (0.4.0): categories load into the restyled sidebar; selecting
+      one loads the single-column list with large channel numbers and names;
+      only ~12 rows are in the DOM; Up/Down move row to row; Left from a row
+      reaches the sidebar; Back from a row returns to the active category;
       Back from Live returns Home.
-- [ ] Player: Enter/click on a card opens a fullscreen takeover and starts
+- [ ] Player: Enter/click on a row opens a fullscreen takeover and starts
       playback; Play/Pause toggles; the control bar hides after ~4s of
       playing and returns on any key; arrows stay inside the player; Back
-      closes it and restores focus to the same card; no animation or blur.
+      closes it and restores focus to the same row; no animation or blur.
 - [ ] Player keys: Space toggles; media keys play/pause/stop (415, 19, 10252,
       413); Enter while the bar is hidden only reveals it; while the bar is
       visible, Enter activates the focused control.

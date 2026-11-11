@@ -7,13 +7,14 @@
   background-color: var(--bg-primary);
 }
 
+/* Same eyebrow treatment as the "Live TV" label over the channel list. */
 .categories__title {
   display: none;
-  margin: 0 0 0.85rem;
-  color: var(--text-muted);
+  margin: 0 0 1rem;
+  color: var(--focus-ring);
   font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
@@ -38,14 +39,14 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-height: 2.5rem;
-  margin-right: 0.4rem;
-  padding: 0.3rem 0.85rem;
+  min-height: 2.75rem;
+  margin-right: 0.5rem;
+  padding: 0.35rem 1rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background-color: transparent;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.2;
   text-align: center;
@@ -74,7 +75,7 @@
   margin: 0;
   padding: 0.5rem 0.25rem 0.75rem;
   color: var(--text-muted);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .categories__status p {
@@ -82,13 +83,13 @@
 }
 
 .categories__retry {
-  min-height: 2.5rem;
-  padding: 0 1rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background-color: var(--bg-elevated);
   color: var(--text-main);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 600;
   -webkit-appearance: none;
   appearance: none;
@@ -96,7 +97,7 @@
 
 @media (min-width: 769px) {
   .categories {
-    padding: 1.5rem 0.75rem 1.5rem 1.5rem;
+    padding: 1.75rem 0.9rem 1.75rem 1.5rem;
     overflow-y: auto;
     border-top: 0;
     border-right: 1px solid var(--border-subtle);
@@ -117,13 +118,13 @@
     flex-direction: row;
     justify-content: flex-start;
     width: 100%;
-    min-height: 2.75rem;
-    margin: 0 0 0.3rem;
-    padding: 0 0.75rem;
+    min-height: 3.25rem;
+    margin: 0 0 0.35rem;
+    padding: 0 0.9rem;
     border: 0;
     border-radius: var(--radius-sm);
     color: var(--text-muted);
-    font-size: 0.9375rem;
+    font-size: 1.0625rem;
     font-weight: 600;
     text-align: left;
   }
@@ -136,8 +137,8 @@
     content: "";
     flex: 0 0 auto;
     width: 3px;
-    height: 1.1rem;
-    margin-right: 0.7rem;
+    height: 1.4rem;
+    margin-right: 0.85rem;
     border-radius: 2px;
     background-color: var(--focus-ring);
     opacity: 0;

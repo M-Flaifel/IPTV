@@ -440,7 +440,7 @@ export function useSpatialNavigation(
 
       const direction = directionFromEvent(event);
 
-      // Back from the channel grid returns to the active category, which is
+      // Back from the channel list returns to the active category, which is
       // where the user came from. Back anywhere else leaves the browser.
       if (isBackEvent(event)) {
         // Backspace edits text instead of navigating while an input is focused.
