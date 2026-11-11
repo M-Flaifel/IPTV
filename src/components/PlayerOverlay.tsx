@@ -55,6 +55,38 @@ function isBackKey(event: KeyboardEvent): boolean {
   );
 }
 
+/**
+ * Key codes the player already understands. Anything else arriving while the
+ * player is open is logged with its code so an unmapped remote button (a
+ * play/pause variant, for example) can be identified in the Apps2Samsung
+ * debug console and mapped.
+ */
+const KNOWN_KEY_CODES: Record<number, string> = {
+  8: 'Backspace',
+  13: 'Enter',
+  19: 'MediaPause',
+  27: 'Escape',
+  32: 'Space',
+  37: 'ArrowLeft',
+  38: 'ArrowUp',
+  39: 'ArrowRight',
+  40: 'ArrowDown',
+  413: 'MediaStop',
+  415: 'MediaPlay',
+  10009: 'TizenBack',
+  10252: 'MediaPlayPause',
+};
+
+function logUnknownKey(event: KeyboardEvent): void {
+  if (event.keyCode === 0 || event.keyCode in KNOWN_KEY_CODES) {
+    return;
+  }
+
+  console.info(
+    `player: unhandled key code=${event.keyCode} key="${event.key}"`
+  );
+}
+
 export function PlayerOverlay({
   channel,
   source,
@@ -194,6 +226,10 @@ export function PlayerOverlay({
         revealControls();
         return;
       }
+
+      // Diagnostics first: if a remote button arrives with an unmapped code,
+      // it is visible in the debug console even while the bar is hidden.
+      logUnknownKey(event);
 
       if (!controlsVisibleRef.current) {
         event.preventDefault();

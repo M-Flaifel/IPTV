@@ -33,7 +33,9 @@ than silently relaxing it.
   channel card that opened it.
 - Samsung remote media keys are wired in the player: play (415), pause (19),
   play/pause (10252), and stop (413, exits the player). Space toggles in the
-  browser preview.
+  browser preview. Samsung blocks media keys from web apps until they are
+  registered with `tizen.tvinputdevice.registerKey()`, which
+  `registerTizenMediaKeys()` does at startup (0.2.1).
 - Playback seam (`src/services/player.ts`) with runtime engine detection:
   - `window.webapis.avplay` present → native Tizen AVPlay adapter and the real
     Xtream stream URL.
@@ -161,9 +163,12 @@ should be justified against that hardware.
   - From Movies/Series, Back returns to Home.
 - Samsung remote media keys act only inside the player overlay, handled in
   the capture phase before spatial navigation: play `415`, pause `19`,
-  play/pause `10252`, stop `413` (exits the player). While the player's
-  control bar is auto-hidden, any other key only reveals it (the press is
-  swallowed on purpose).
+  play/pause `10252`, stop `413` (exits the player). They only arrive after
+  `registerTizenMediaKeys()` registers them with the TV input device API at
+  startup; unregistered, the TV consumes them and shows its own overlay.
+  While the player's control bar is auto-hidden, any other key only reveals
+  it (the press is swallowed on purpose). Unrecognized key codes are logged
+  as `player: unhandled key ...` for mapping in the debug console.
 - Home entry focus: hero primary CTA when keyboard mode is active. First-run
   focuses the Server field instead.
 - Returning from Live focuses the hero CTA (“Continue to …”).
@@ -219,6 +224,8 @@ src/context/InputModeContext.tsx
 src/hooks/useSpatialNavigation.ts
                            Arrow focus movement, Back handling, form edges
 src/services/http.ts       HTTP transport seam (fetch by default)
+src/services/tizenKeys.ts  Registers the remote's media keys via
+                           tizen.tvinputdevice at startup
 src/services/xtream.ts     Xtream queries and normalization
 src/services/player.ts     Playback seam: source selection, engine detection
 src/services/avplay.ts     Tizen AVPlay adapter and webapis typings
@@ -420,11 +427,15 @@ Manual checks:
    playing (0.1.1); non-fatal `onerror` events during initial buffering no
    longer flash the stream error (0.1.1); the player is now a fullscreen
    takeover with a constant `setDisplayRect(0,0,1920,1080)` and remote media
-   keys (0.2.0). Still to verify on the TV: video fills the screen, controls
-   auto-hide/reveal, play/pause from the remote, Back teardown, and the
-   `avplay:` console lines via Apps2Samsung's debug console. Tauri (libmpv)
-   and Capacitor (ExoPlayer) adapters come later. HLS via `hls.js` remains an
-   unapproved desktop fallback.
+   keys (0.2.0, verified on the TV: fullscreen video, auto-hiding controls,
+   and Back teardown all work). The remote's play/pause button showed the
+   TV's own overlay instead of reaching the app: Samsung delivers media keys
+   to web apps only after `tizen.tvinputdevice.registerKey()` registration,
+   added in 0.2.1 and pending re-verification. If the button still misfires,
+   the player logs unrecognized codes as `player: unhandled key ...` in the
+   Apps2Samsung debug console. Tauri (libmpv) and Capacitor (ExoPlayer)
+   adapters come later. HLS via `hls.js` remains an unapproved desktop
+   fallback.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
    preserving the current navigation and performance rules. See the roadmap:
    this lands after the playlists page and the Live TV list redesign.
