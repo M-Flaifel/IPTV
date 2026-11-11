@@ -16,19 +16,53 @@ export function setHttpTransport(next: HttpTransport): void {
   transport = next;
 }
 
-export async function httpGetText(
+/** A non-2xx response; carries the status for callers that need it. */
+export class HttpStatusError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Request failed with HTTP ${status}.`);
+    this.status = status;
+  }
+}
+
+export interface HttpTextResult {
+  status: number;
+  ok: boolean;
+  text: string;
+}
+
+/**
+ * Fetches text together with its response status, without throwing on
+ * non-2xx responses. The credential check needs the status (401 vs 500) to
+ * tell wrong credentials apart from a broken server.
+ */
+export async function httpGetTextResult(
   url: string,
   headers?: Record<string, string>
-): Promise<string> {
+): Promise<HttpTextResult> {
   const response = await transport(url, {
     method: 'GET',
     headers,
     cache: 'no-store',
   });
 
-  if (!response.ok) {
-    throw new Error(`Request failed with HTTP ${response.status}.`);
+  return {
+    status: response.status,
+    ok: response.ok,
+    text: await response.text(),
+  };
+}
+
+export async function httpGetText(
+  url: string,
+  headers?: Record<string, string>
+): Promise<string> {
+  const result = await httpGetTextResult(url, headers);
+
+  if (!result.ok) {
+    throw new HttpStatusError(result.status);
   }
 
-  return response.text();
+  return result.text;
 }

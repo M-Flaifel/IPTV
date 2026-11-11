@@ -8,7 +8,8 @@ interface TopNavProps {
   onNavigate: (target: ViewTarget) => void;
 }
 
-const LINKS: Array<{ id: Section; label: string }> = [
+const LINKS: Array<{ id: Section | 'playlists'; label: string }> = [
+  { id: 'playlists', label: 'Playlists' },
   { id: 'live', label: 'Live TV' },
   { id: 'movies', label: 'Movies' },
   { id: 'series', label: 'Series' },
@@ -56,7 +57,7 @@ export function TopNav({ active, config, onNavigate }: TopNavProps) {
             }
             data-spatial="nav"
             aria-current={active === link.id ? 'page' : undefined}
-            disabled={!config}
+            disabled={!config && link.id !== 'playlists'}
             onClick={() => onNavigate(link.id)}
             key={link.id}
           >

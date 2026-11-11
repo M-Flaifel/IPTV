@@ -1,0 +1,169 @@
+/* ==========================================================================
+   Playlist form
+
+   TV-friendly fields: each value renders as a button that looks like an
+   input. Enter opens the real input (and the on-screen keyboard); Enter
+   again commits and moves on. The password value can be revealed with the
+   eye toggle. Chromium 56-era CSS only: no inset shorthand, no flex gap.
+   ========================================================================== */
+
+.playlist__form {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playlist__field {
+  margin-bottom: 0.85rem;
+}
+
+.playlist__label {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.playlist__control {
+  display: flex;
+  align-items: stretch;
+}
+
+/* The input and its button twin share one box style. */
+.playlist__input,
+.playlist__field-button {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-size: 0.9375rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playlist__field-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+
+html[data-input-mode="mouse"] .playlist__field-button {
+  cursor: pointer;
+}
+
+.playlist__field-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist__field-value--empty {
+  color: var(--text-muted);
+}
+
+.playlist__field-action {
+  flex: 0 0 auto;
+  margin-left: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.playlist__eye {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  margin-left: 0.5rem;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-muted);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playlist__eye svg {
+  display: block;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0 auto;
+}
+
+html[data-input-mode="mouse"] .playlist__eye {
+  cursor: pointer;
+}
+
+.playlist__error {
+  margin: 0 0 0.85rem;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid var(--art-movies);
+  background-color: var(--bg-elevated);
+  font-size: 0.8125rem;
+}
+
+.playlist__status {
+  margin: 0 0 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.playlist__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+.playlist__cancel {
+  min-height: 2.75rem;
+  margin-right: 0.6rem;
+  padding: 0 1.2rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--text-main);
+  font-size: 0.875rem;
+  font-weight: 700;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playlist__submit {
+  min-height: 2.75rem;
+  padding: 0 1.3rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--focus-ring);
+  color: var(--bg-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playlist__submit[disabled] {
+  opacity: 0.6;
+}
+
+html[data-input-mode="mouse"] .playlist__cancel,
+html[data-input-mode="mouse"] .playlist__submit {
+  cursor: pointer;
+}
+
+.playlist__hint {
+  margin: 0.75rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}

@@ -18,10 +18,22 @@ than silently relaxing it.
   selected category.
 - IndexedDB category cache (`iptv` database) plus an in-memory per-category
   stream cache and request-race protection.
-- Home screen with billboard hero, section cards, last-used section, and
-  playlist credentials form on the same page.
-- First-run flow (no credentials): disabled sections, hero CTA scrolls to the
-  form, server field autofocuses.
+- Home screen with billboard hero, section cards, last-used section, and a
+  playlist status card (connected host and user) with a manage link.
+- First-run flow (no playlist): disabled sections; the hero CTA opens the
+  playlists page to add one.
+- Playlists page, reachable from the top nav and Home: multiple named
+  playlists with add, edit, delete (two-press confirm), and switch; the
+  active playlist feeds Live TV, Movies, and Series (0.3.0).
+- Credential validation on save via `player_api.php`: nothing is stored
+  unless the panel accepts the login; inline errors distinguish wrong
+  credentials, an unreachable server, and banned/disabled/expired accounts.
+- Playlist form fields render as buttons showing their values; Enter opens
+  the real input — so the on-screen keyboard opens only then — with its text
+  selected; Enter and Up/Down commit and move between fields. The password
+  field has a show/hide toggle.
+- Pre-0.3 single-credential storage migrates into one playlist (named after
+  the panel host) on first load; the legacy key is then removed.
 - Shared top navigation across Home, Live, Movies, and Series.
 - Virtualized channel grid with ~12 rendered rows maximum.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
@@ -56,20 +68,18 @@ than silently relaxing it.
 - **Desktop and Android packaging.** Tauri and Capacitor wrappers do not exist
   yet. Production Xtream calls still depend on panel CORS; `src/services/http.ts`
   is the seam for a native transport.
-- **Multiple playlists.** A single playlist is stored in `localStorage`; a
-  dedicated playlists page with named playlists, save-time credential
-  validation, Enter-to-open input fields, and a show-password toggle is
-  planned (see roadmap).
 
 ### Roadmap (user-approved order)
 
-1. **Fullscreen player + remote media keys** — shipped in 0.2.0; verify on the
-   TV.
-2. **Playlists page** — dedicated view reachable from the top nav; multiple
-   named playlists (add/edit/delete/switch); credential validation on save
-   (`player_api.php` login check) with inline errors; form fields open the
-   on-screen keyboard only on Enter; show-password toggle. The home screen
-   keeps an "Add playlist" CTA instead of the inline form.
+1. **Fullscreen player + remote media keys** — shipped in 0.2.0 and verified
+   on the TV; media-key registration followed in 0.2.1 and is pending
+   re-verification on device.
+2. **Playlists page** — shipped in 0.3.0 (browser-verified, pending TV
+   verification): dedicated view reachable from the top nav and Home;
+   multiple named playlists (add/edit/delete/switch); credential validation
+   on save (`player_api.php` login check) with inline errors; form fields
+   open the on-screen keyboard only on Enter; show-password toggle; pre-0.3
+   config migration.
 3. **Live TV redesign** — channels become a virtualized single-column list
    with larger type matching the home screen's design language; category
    sidebar restyled to match.
@@ -159,6 +169,9 @@ should be justified against that hardware.
   - From the channel grid, Back returns focus to the active category.
   - From the player overlay, Back closes it and restores focus to the channel
     card that opened it.
+  - From the playlist form, Back cancels the open field's edit; Back again
+    closes the form and returns to the playlist list. From the playlists page,
+    Back returns to Home.
   - From Live, Back returns to Home.
   - From Movies/Series, Back returns to Home.
 - Samsung remote media keys act only inside the player overlay, handled in
@@ -169,13 +182,21 @@ should be justified against that hardware.
   While the player's control bar is auto-hidden, any other key only reveals
   it (the press is swallowed on purpose). Unrecognized key codes are logged
   as `player: unhandled key ...` for mapping in the debug console.
-- Home entry focus: hero primary CTA when keyboard mode is active. First-run
-  focuses the Server field instead.
+- Home entry focus: hero primary CTA when keyboard mode is active, on first
+  run and when returning.
+- Playlists entry focuses the first row; after the form closes, focus returns
+  to the playlist that was saved or edited.
 - Returning from Live focuses the hero CTA (“Continue to …”).
 - Browser entry focuses the first category; Section screens focus “Back to
   home”.
-- The playlist form keeps Up/Down movement between its fields and bubbles at
-  the edges to spatial navigation.
+- The playlist form is a spatial scope: arrows cannot leave it while it is
+  open, and Back closes it. Fields render as buttons showing their values;
+  Enter opens the input (the on-screen keyboard opens only then) with its
+  text selected; Up/Down commit and move between fields, stopping at the
+  edges; Enter commits and advances; Back cancels the edit and keeps the
+  field's button focused. Focus handoffs happen synchronously with the DOM
+  commit — never in a deferred effect — so rapid key repeats cannot land on
+  `<body>`.
 
 ### Data and caching
 
@@ -191,8 +212,12 @@ should be justified against that hardware.
 
 ### Credentials and privacy
 
-- Xtream credentials are stored only in `localStorage` under
-  `iptv-xtream-config` on the device.
+- Playlists and their credentials are stored only in `localStorage` on the
+  device: the list under `iptv-playlists`, the active playlist id under
+  `iptv-active-playlist`. Saving validates against the panel first; nothing
+  is stored unless `player_api.php` accepts the login.
+- The pre-0.3 key `iptv-xtream-config` migrates into one playlist on first
+  load and is then removed, so updates never lose saved credentials.
 - Never commit credentials, panel URLs, or generated secrets.
 - Never log passwords. Do not send them anywhere except the configured Xtream
   panel.
@@ -216,7 +241,8 @@ should be justified against that hardware.
 ```text
 index.html                 Theme pre-paint script, app mount
 src/main.tsx               Providers and root render
-src/app.tsx                View routing (home/live/movies/series), Live data flow
+src/app.tsx                Playlist state, view routing (home/playlists/
+                           live/movies/series), Live data flow
 src/types.ts               Shared types: Section, ViewTarget, Category, Channel
 src/theme.ts               Theme list, persistence, next/previous theme
 src/context/InputModeContext.tsx
@@ -226,19 +252,27 @@ src/hooks/useSpatialNavigation.ts
 src/services/http.ts       HTTP transport seam (fetch by default)
 src/services/tizenKeys.ts  Registers the remote's media keys via
                            tizen.tvinputdevice at startup
-src/services/xtream.ts     Xtream queries and normalization
+src/services/xtream.ts     Xtream queries, normalization, credential check
 src/services/player.ts     Playback seam: source selection, engine detection
 src/services/avplay.ts     Tizen AVPlay adapter and webapis typings
 src/services/html5Player.ts
                            Browser `<video>` fallback for the mock MP4
 src/services/categoryCache.ts
                            IndexedDB category cache
-src/services/config.ts     Credential load/save/validation, config key
-src/components/TopNav.*    Shared brand, section links, theme toggle
+src/services/config.ts     Pure config helpers: URL normalization, validity,
+                           cache/remount key
+src/services/playlistStore.ts
+                           Playlist persistence (localStorage list + active
+                           id) and pre-0.3 config migration
+src/components/TopNav.*    Shared brand, section links, playlists link,
+                           theme toggle
 src/components/HomeScreen.*
-                           Hero, section cards, playlist panel
+                           Hero, section cards, playlist status card
 src/components/PlaylistForm.tsx
-                           Server/username/password form
+                           Button-style fields, Enter-to-open inputs,
+                           credential check on save, show-password toggle
+src/components/PlaylistsScreen.*
+                           Playlist list (add/edit/delete/switch) and form
 src/components/CategoryNav.*
                            Desktop rail and mobile pill strip
 src/components/ChannelGrid.*
@@ -257,23 +291,27 @@ src/styles/global.css      Reset, base type, focus ring, utilities
 ### Data flow
 
 ```text
-localStorage ──> config ──> Home (default view)
-                              │
-                              ├─ Live ──> IndexedDB categories
-                              │             └─ select category
-                              │                  └─ memory cache or get_live_streams
-                              │                       └─ virtualized ChannelGrid
-                              │                            └─ select channel
-                              │                                 └─ PlayerOverlay
-                              │                                      └─ AVPlay on Tizen,
-                              │                                         mock MP4 elsewhere
-                              ├─ Movies ──> placeholder
-                              └─ Series ──> placeholder
+localStorage ──> playlists + active id ──> Home (default view)
+                                            │
+                                            ├─ Playlists ──> add/edit/delete/switch
+                                            │                (credential check on save)
+                                            ├─ Live ──> IndexedDB categories
+                                            │             └─ select category
+                                            │                  └─ memory cache or get_live_streams
+                                            │                       └─ virtualized ChannelGrid
+                                            │                            └─ select channel
+                                            │                                 └─ PlayerOverlay
+                                            │                                      └─ AVPlay on Tizen,
+                                            │                                         mock MP4 elsewhere
+                                            ├─ Movies ──> placeholder
+                                            └─ Series ──> placeholder
 ```
 
 - Home is the default view even when a playlist is already saved.
 - `lastSection` drives the hero CTA (“Continue to Live TV/Movies/Series”).
 - Live mounts with a `configKey`; changing the playlist remounts the browser.
+- Switching, editing, or deleting the active playlist re-derives the config;
+  views that require one fall back to Home.
 - Movies/Series are routed through `SectionScreen` until their catalogs exist.
 
 ### Virtualization
@@ -380,10 +418,21 @@ npm run build:tizen
 Manual checks:
 
 - [ ] First run: Home hero says “Bring your playlist.”; nav sections and
-      section cards are disabled; Server field is focused; saving enables
-      everything.
-- [ ] Saved run: hero CTA says “Continue to …”; “Edit playlist” scrolls to and
-      focuses the form; form saves and updates the playlist summary.
+      section cards are disabled; the hero CTA opens the playlists page with
+      the add form's first field focused.
+- [ ] Saved run: hero CTA says “Continue to …”; the playlist status card shows
+      the connected host and user; “Manage playlists” opens the playlists page.
+- [ ] Playlists: saving with wrong credentials shows an inline error and
+      stores nothing; saving valid credentials stores, activates, and lists
+      the playlist; edit keeps values; delete needs a second press and
+      disarms on blur; switching the active playlist remounts Live.
+- [ ] Playlist form on the remote: Enter opens a field's input (keyboard only
+      then) with its text selected; Up/Down commit and move between fields,
+      stopping at the edges; Enter on the last field reaches Save; Back
+      cancels the edit and a second Back closes the form; the eye toggles
+      the password.
+- [ ] Migration: a pre-0.3 `iptv-xtream-config` entry appears as one playlist
+      named after the panel host, and the legacy key is removed.
 - [ ] Keyboard: Home CTA → ArrowDown reaches a section card → Enter opens it →
       Escape/Back returns Home with the CTA focused.
 - [ ] Live: categories load; selecting a category fetches streams; only ~12

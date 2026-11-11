@@ -1,0 +1,188 @@
+/* ==========================================================================
+   Playlists screen
+
+   A centered column of saved playlists with per-row Use/Edit/Delete
+   controls, and the add/edit form replacing the list while open.
+   Chromium 56-era CSS only: no inset shorthand, no flex gap.
+   ========================================================================== */
+
+.playlists {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--bg-primary);
+}
+
+.playlists__body {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+@media (min-width: 769px) {
+  .playlists__body {
+    padding: 3rem 1.5rem 4rem;
+  }
+}
+
+.playlists__eyebrow {
+  margin: 0 0 0.4rem;
+  color: var(--focus-ring);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.playlists__title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+@media (min-width: 769px) {
+  .playlists__title {
+    font-size: 2.5rem;
+  }
+}
+
+.playlists__intro {
+  margin: 0 0 1.75rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.playlists__content {
+  padding: 1.15rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+}
+
+.playlists__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.playlists__row {
+  display: flex;
+  align-items: stretch;
+}
+
+.playlists__row + .playlists__row {
+  margin-top: 0.6rem;
+}
+
+.playlists__row-main {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 4.25rem;
+  padding: 0.55rem 4.5rem 0.55rem 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right-width: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-input-mode="mouse"] .playlists__row-main {
+  cursor: pointer;
+}
+
+.playlists__row--active .playlists__row-main {
+  border-color: var(--art-live);
+}
+
+.playlists__row-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.playlists__row-meta {
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.playlists__row-badge {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.7rem;
+  padding: 0.14rem 0.5rem;
+  border: 1px solid var(--art-live);
+  border-radius: var(--radius-pill);
+  color: var(--art-live);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.playlists__row-button {
+  flex: 0 0 auto;
+  min-height: 4.25rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.playlists__row-button--danger {
+  border-color: var(--art-movies);
+  color: var(--art-movies);
+}
+
+html[data-input-mode="mouse"] .playlists__row-button {
+  cursor: pointer;
+}
+
+.playlists__empty {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.playlists__add {
+  min-height: 3rem;
+  margin-top: 1rem;
+  padding: 0 1.4rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-main);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-input-mode="mouse"] .playlists__add {
+  cursor: pointer;
+}

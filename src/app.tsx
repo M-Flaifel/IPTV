@@ -9,16 +9,27 @@ import { CategoryNav } from './components/CategoryNav';
 import { ChannelGrid } from './components/ChannelGrid';
 import { HomeScreen } from './components/HomeScreen';
 import { PlayerOverlay } from './components/PlayerOverlay';
+import { PlaylistsScreen } from './components/PlaylistsScreen';
 import { SectionScreen } from './components/SectionScreen';
 import { TopNav } from './components/TopNav';
 import { SpatialNavigation } from './hooks/useSpatialNavigation';
 import { ALL_CATEGORY, ALL_CATEGORY_ID } from './types';
-import type { Category, Channel, Section, ViewTarget, XtreamConfig } from './types';
+import type {
+  Category,
+  Channel,
+  Playlist,
+  Section,
+  ViewTarget,
+  XtreamConfig,
+} from './types';
+import { configKey } from './services/config';
 import {
-  configKey,
-  loadConfig,
-  saveConfig,
-} from './services/config';
+  loadActivePlaylistId,
+  loadPlaylists,
+  saveActivePlaylistId,
+  savePlaylists,
+  toXtreamConfig,
+} from './services/playlistStore';
 import {
   fetchLiveCategories,
   fetchLiveStreams,
@@ -42,17 +53,63 @@ function errorMessage(error: unknown): string {
   return 'Something went wrong. Please try again.';
 }
 
-type View = 'home' | Section;
+type View = 'home' | 'playlists' | Section;
 
 export function App() {
-  const [config, setConfig] = useState<XtreamConfig | null>(loadConfig);
+  const [playlists, setPlaylists] = useState<Playlist[]>(loadPlaylists);
+  const [activeId, setActiveId] = useState<string | null>(
+    loadActivePlaylistId
+  );
   const [view, setView] = useState<View>('home');
   const [lastSection, setLastSection] = useState<Section>('live');
 
-  const handleSave = useCallback((next: XtreamConfig) => {
-    saveConfig(next);
-    setConfig(next);
-  }, []);
+  // The active playlist is the single source of truth for the panel config.
+  const activePlaylist =
+    playlists.find((playlist) => playlist.id === activeId) || null;
+  const config = activePlaylist ? toXtreamConfig(activePlaylist) : null;
+
+  // A newly saved playlist (or a re-save of the active one) becomes active;
+  // editing a different playlist keeps the current active.
+  const savePlaylist = (playlist: Playlist) => {
+    const index = playlists.findIndex(
+      (candidate) => candidate.id === playlist.id
+    );
+    const next =
+      index < 0
+        ? [...playlists, playlist]
+        : playlists.map((candidate) =>
+            candidate.id === playlist.id ? playlist : candidate
+          );
+
+    setPlaylists(next);
+    savePlaylists(next);
+
+    if (index < 0 || playlist.id === activeId) {
+      setActiveId(playlist.id);
+      saveActivePlaylistId(playlist.id);
+    }
+  };
+
+  const activatePlaylist = (id: string) => {
+    setActiveId(id);
+    saveActivePlaylistId(id);
+  };
+
+  // Deleting the active playlist clears the selection; sections that need a
+  // config fall back to the home screen.
+  const deletePlaylist = (id: string) => {
+    const next = playlists.filter(
+      (playlist) => playlist.id !== id
+    );
+
+    setPlaylists(next);
+    savePlaylists(next);
+
+    if (id === activeId) {
+      setActiveId(null);
+      saveActivePlaylistId(null);
+    }
+  };
 
   const openSection = useCallback((section: Section) => {
     setLastSection(section);
@@ -65,8 +122,8 @@ export function App() {
 
   const navigate = useCallback(
     (target: ViewTarget) => {
-      if (target === 'home') {
-        setView('home');
+      if (target === 'home' || target === 'playlists') {
+        setView(target);
         return;
       }
 
@@ -76,12 +133,28 @@ export function App() {
     []
   );
 
+  if (view === 'playlists') {
+    return (
+      <PlaylistsScreen
+        playlists={playlists}
+        activeId={activeId}
+        config={config}
+        onActivate={activatePlaylist}
+        onSave={savePlaylist}
+        onDelete={deletePlaylist}
+        onHome={goHome}
+        onNavigate={navigate}
+      />
+    );
+  }
+
   if (!config || view === 'home') {
     return (
       <HomeScreen
         config={config}
+        activePlaylist={activePlaylist}
+        hasPlaylists={playlists.length > 0}
         lastSection={lastSection}
-        onSave={handleSave}
         onSelect={openSection}
         onNavigate={navigate}
       />

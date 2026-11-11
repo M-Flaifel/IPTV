@@ -17,7 +17,7 @@
     replace older widgets.
 -->
 <widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
-        id="https://github.com/M-Flaifel/IPTV" version="0.2.1" viewmodes="fullscreen">
+        id="https://github.com/M-Flaifel/IPTV" version="0.3.0" viewmodes="fullscreen">
     <access origin="*" subdomains="true"/>
     <tizen:application id="MFlaifelTV.IPTV" package="MFlaifelTV" required_version="2.4"/>
     <content src="index.html"/>

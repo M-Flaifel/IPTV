@@ -4,6 +4,15 @@ export interface XtreamConfig {
   password: string;
 }
 
+/** A saved, named Xtream playlist. The active one feeds `XtreamConfig`. */
+export interface Playlist {
+  id: string;
+  name: string;
+  baseUrl: string;
+  username: string;
+  password: string;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -26,4 +35,4 @@ export const ALL_CATEGORY: Category = {
 
 export type Section = 'live' | 'movies' | 'series';
 
-export type ViewTarget = 'home' | Section;
+export type ViewTarget = 'home' | 'playlists' | Section;

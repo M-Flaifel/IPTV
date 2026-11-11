@@ -1,15 +1,16 @@
 import { useLayoutEffect, useRef } from 'preact/hooks';
 import type { JSX } from 'preact';
-import type { Section, ViewTarget, XtreamConfig } from '../types';
+import type { Playlist, Section, ViewTarget, XtreamConfig } from '../types';
 import { SpatialNavigation } from '../hooks/useSpatialNavigation';
 import { TopNav } from './TopNav';
-import { PlaylistForm } from './PlaylistForm';
+import { playlistHost } from '../services/playlistStore';
 import './HomeScreen.css';
 
 interface HomeScreenProps {
   config: XtreamConfig | null;
+  activePlaylist: Playlist | null;
+  hasPlaylists: boolean;
   lastSection: Section;
-  onSave: (config: XtreamConfig) => void;
   onSelect: (section: Section) => void;
   onNavigate: (target: ViewTarget) => void;
 }
@@ -97,27 +98,15 @@ const SECTION_ITEMS: SectionItem[] = [
 
 const HERO_TILES = [0, 1, 2, 3, 4, 5];
 
-function playlistHost(config: XtreamConfig | null): string {
-  if (!config) {
-    return '';
-  }
-
-  try {
-    return new URL(config.baseUrl).host;
-  } catch (error) {
-    return config.baseUrl;
-  }
-}
-
 export function HomeScreen({
   config,
+  activePlaylist,
+  hasPlaylists,
   lastSection,
-  onSave,
   onSelect,
   onNavigate,
 }: HomeScreenProps) {
   const primaryRef = useRef<HTMLButtonElement>(null);
-  const playlistRef = useRef<HTMLElement>(null);
 
   // Remote users land on the main action, mirroring how TV streaming apps
   // place focus on the billboard CTA.
@@ -130,19 +119,6 @@ export function HomeScreen({
 
     primaryRef.current?.focus();
   }, []);
-
-  const focusPlaylist = () => {
-    const panel = playlistRef.current;
-    if (!panel) {
-      return;
-    }
-
-    panel.scrollIntoView({ block: 'start' });
-    const firstInput = panel.querySelector('input');
-    if (firstInput instanceof HTMLElement) {
-      firstInput.focus();
-    }
-  };
 
   const connected = Boolean(config);
 
@@ -187,7 +163,7 @@ export function HomeScreen({
           <p class="home__intro">
             {connected
               ? 'Live channels, movies, and series — all from your own playlist, all on this device.'
-              : 'Add your Xtream credentials below to unlock Live TV, Movies, and Series.'}
+              : 'Add an Xtream playlist to unlock Live TV, Movies, and Series.'}
           </p>
 
           <div class="home__hero-actions">
@@ -196,7 +172,11 @@ export function HomeScreen({
               type="button"
               class="home__cta"
               data-spatial="home"
-              onClick={connected ? () => onSelect(lastSection) : focusPlaylist}
+              onClick={
+                connected
+                  ? () => onSelect(lastSection)
+                  : () => onNavigate('playlists')
+              }
             >
               <span class="home__cta-icon" aria-hidden="true">
                 {connected ? (
@@ -211,19 +191,19 @@ export function HomeScreen({
               </span>
               {connected
                 ? `Continue to ${SECTION_TITLES[lastSection]}`
-                : 'Set up your playlist'}
+                : hasPlaylists
+                  ? 'Choose a playlist'
+                  : 'Set up your playlist'}
             </button>
 
-            {connected ? (
-              <button
-                type="button"
-                class="home__cta home__cta--ghost"
-                data-spatial="home"
-                onClick={focusPlaylist}
-              >
-                Edit playlist
-              </button>
-            ) : null}
+            <button
+              type="button"
+              class="home__cta home__cta--ghost"
+              data-spatial="home"
+              onClick={() => onNavigate('playlists')}
+            >
+              {connected ? 'Manage playlists' : 'Add a playlist'}
+            </button>
           </div>
         </div>
       </section>
@@ -237,7 +217,7 @@ export function HomeScreen({
             <p class="home__row-meta">
               {connected
                 ? 'Pick a section to start'
-                : 'Add credentials below to unlock'}
+                : 'Add a playlist below to unlock'}
             </p>
           </div>
 
@@ -279,19 +259,26 @@ export function HomeScreen({
           class="home__row home__playlist"
           id="playlist"
           aria-labelledby="home-playlist-title"
-          ref={playlistRef}
         >
           <div class="home__playlist-copy">
             <h2 class="home__row-title" id="home-playlist-title">
               Your playlist
             </h2>
-            {config ? (
-              <p class="home__playlist-meta">
-                Connected to <strong>{playlistHost(config)}</strong> as{' '}
-                <strong>{config.username}</strong>.
-              </p>
+            {activePlaylist ? (
+              <>
+                <p class="home__playlist-name">{activePlaylist.name}</p>
+                <p class="home__playlist-meta">
+                  Connected to{' '}
+                  <strong>{playlistHost(activePlaylist)}</strong> as{' '}
+                  <strong>{activePlaylist.username}</strong>.
+                </p>
+              </>
             ) : (
-              <p class="home__playlist-meta">No playlist connected yet.</p>
+              <p class="home__playlist-meta">
+                {hasPlaylists
+                  ? 'No playlist selected. Choose one to start watching.'
+                  : 'No playlists saved yet.'}
+              </p>
             )}
             <p class="home__playlist-note">
               Credentials stay on this device. They are only sent to your
@@ -299,7 +286,18 @@ export function HomeScreen({
             </p>
           </div>
 
-          <PlaylistForm initial={config} onSave={onSave} />
+          <button
+            type="button"
+            class="home__playlist-manage"
+            data-spatial="home"
+            onClick={() => onNavigate('playlists')}
+          >
+            {activePlaylist
+              ? 'Manage playlists'
+              : hasPlaylists
+                ? 'Choose a playlist'
+                : 'Add a playlist'}
+          </button>
         </section>
       </div>
     </main>

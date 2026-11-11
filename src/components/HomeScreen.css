@@ -531,30 +531,39 @@ html[data-input-mode="mouse"] .home__section:not([disabled]):hover {
 }
 
 /* ==========================================================================
-   Playlist
+   Playlist status card
+
+   A read-only summary of the active playlist; editing lives on the
+   playlists page. Chromium 56-era CSS only: no inset shorthand, no flex gap.
    ========================================================================== */
 
 .home__playlist {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.5rem;
+  display: flex;
+  align-items: center;
   padding: 1.15rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background-color: var(--bg-secondary);
-  scroll-margin-top: 1rem;
 }
 
 @media (min-width: 1000px) {
   .home__playlist {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-    gap: 2.5rem;
     padding: 1.75rem;
   }
 }
 
 .home__playlist-copy {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.home__playlist-name {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
 }
 
 .home__playlist-meta {
@@ -576,86 +585,23 @@ html[data-input-mode="mouse"] .home__section:not([disabled]):hover {
   line-height: 1.5;
 }
 
-/* Playlist form */
-
-.playlist__form {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.playlist__field {
-  display: block;
-  margin-bottom: 0.75rem;
-}
-
-.playlist__label {
-  display: block;
-  margin-bottom: 0.3rem;
-  color: var(--text-muted);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.playlist__input {
-  width: 100%;
+.home__playlist-manage {
+  flex: 0 0 auto;
   min-height: 2.75rem;
-  padding: 0.45rem 0.7rem;
+  margin-left: 1.25rem;
+  padding: 0 1.2rem;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background-color: var(--bg-primary);
   color: var(--text-main);
-  font-size: 0.9375rem;
-}
-
-.playlist__error {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.7rem;
-  border-left: 3px solid var(--focus-ring);
-  background-color: var(--bg-elevated);
-  font-size: 0.8125rem;
-}
-
-.playlist__saved {
-  margin: 0 0 0.75rem;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-}
-
-.playlist__actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.25rem;
-}
-
-.playlist__submit {
-  min-height: 2.75rem;
-  padding: 0 1.3rem;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background-color: var(--focus-ring);
-  color: var(--bg-primary);
   font-size: 0.875rem;
   font-weight: 700;
   -webkit-appearance: none;
   appearance: none;
 }
 
-html[data-input-mode="mouse"] .playlist__submit {
+html[data-input-mode="mouse"] .home__playlist-manage {
   cursor: pointer;
-}
-
-html[data-input-mode="mouse"] .playlist__submit:hover {
-  opacity: 0.9;
-}
-
-.playlist__hint {
-  margin: 0.75rem 0 0;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  text-align: right;
 }
 
 /* Flex fallback for Chromium 56-era Tizen: unprefixed Grid needs Chromium 57+. */
@@ -670,13 +616,5 @@ html[data-input-mode="mouse"] .playlist__submit:hover {
     flex: 1 1 13rem;
     width: auto;
     margin: 0 0.85rem 0.85rem 0;
-  }
-
-  .home__playlist {
-    display: block;
-  }
-
-  .home__playlist-copy {
-    margin-bottom: 1.5rem;
   }
 }
