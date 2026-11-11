@@ -172,14 +172,27 @@ function groupGapAxis(a: DOMRect, b: DOMRect): 'horizontal' | 'vertical' | null 
   return null;
 }
 
+/**
+ * The best element to focus for an arrow direction.
+ *
+ * Distance is measured between facing edges, never centers: a wide element
+ * (a full-width form field beside a small eye toggle) keeps its center far
+ * from its small neighbour, and center-based scoring preferred elements
+ * below it over the toggle sitting right next to it.
+ *
+ * Arrows stay on their axis: Left/Right move within the current row and
+ * Up/Down within the current column. Only when nothing is aligned — the
+ * nearest neighbour sits diagonally, like the manage button under the home
+ * hero or a short category sidebar beside a tall grid — is a clearly
+ * diagonal candidate allowed as a last resort, so an arrow press can still
+ * move but focus never jumps to a slightly offset neighbour below.
+ */
 function findNext(
   current: HTMLElement,
   direction: Direction,
   elements: HTMLElement[]
 ): HTMLElement | null {
   const currentRect = current.getBoundingClientRect();
-  const currentX = centerX(currentRect);
-  const currentY = centerY(currentRect);
 
   const groups = groupElements(elements);
   const currentGroup = current.getAttribute('data-spatial');
@@ -204,8 +217,18 @@ function findNext(
 
   const currentContainer = containerFor(currentGroup);
 
-  let best: HTMLElement | null = null;
-  let bestScore = Infinity;
+  // How far the current element stretches along the movement axis. A
+  // diagonal fallback has to miss the current row or column by more than
+  // this, so an element a few pixels off never hijacks the arrow.
+  const movementSpan =
+    direction === 'left' || direction === 'right'
+      ? currentRect.width
+      : currentRect.height;
+
+  let aligned: HTMLElement | null = null;
+  let alignedScore = Infinity;
+  let diagonal: HTMLElement | null = null;
+  let diagonalScore = Infinity;
 
   for (let i = 0; i < elements.length; i++) {
     const candidate = elements[i];
@@ -214,8 +237,6 @@ function findNext(
     }
 
     const rect = candidate.getBoundingClientRect();
-    const dx = centerX(rect) - currentX;
-    const dy = centerY(rect) - currentY;
 
     const candidateGroup = candidate.getAttribute('data-spatial');
 
@@ -245,46 +266,73 @@ function findNext(
       }
     }
 
-    let primary: number;
-    let secondary: number;
-
+    // Distance between the facing edges; negative while the candidate
+    // still overlaps the current element on the movement axis.
+    let lead: number;
     if (direction === 'left') {
-      if (dx > -1) {
-        continue;
-      }
-      primary = -dx;
-      secondary = Math.abs(dy);
+      lead = currentRect.left - rect.right;
     } else if (direction === 'right') {
-      if (dx < 1) {
-        continue;
-      }
-      primary = dx;
-      secondary = Math.abs(dy);
+      lead = rect.left - currentRect.right;
     } else if (direction === 'up') {
-      if (dy > -1) {
-        continue;
-      }
-      primary = -dy;
-      secondary = Math.abs(dx);
+      lead = currentRect.top - rect.bottom;
     } else {
-      if (dy < 1) {
-        continue;
-      }
-      primary = dy;
-      secondary = Math.abs(dx);
+      lead = rect.top - currentRect.bottom;
     }
 
-    // Prefer the nearest element on the arrow's axis while still allowing
-    // slightly offset targets in the same row or column.
-    const score = primary + secondary * 2;
+    // The candidate must sit beyond the current element's facing edge — one
+    // pixel of tolerance absorbs sub-pixel rounding — not merely have its
+    // center further along the axis.
+    if (lead < -1) {
+      continue;
+    }
 
-    if (score < bestScore) {
-      bestScore = score;
-      best = candidate;
+    const primary = lead > 0 ? lead : 0;
+
+    // How far the candidate misses the current element's span on the
+    // perpendicular axis: 0 means they share the row (Left/Right) or the
+    // column (Up/Down).
+    let gap: number;
+    if (direction === 'left' || direction === 'right') {
+      gap = Math.max(
+        currentRect.top - rect.bottom,
+        rect.top - currentRect.bottom,
+        0
+      );
+    } else {
+      gap = Math.max(
+        currentRect.left - rect.right,
+        rect.left - currentRect.right,
+        0
+      );
+    }
+
+    if (gap === 0) {
+      // Same row/column: the nearest along the axis wins, with the
+      // perpendicular center offset as a tie-break between neighbours at
+      // the same distance (the nav link above a playlist row).
+      const offset =
+        direction === 'left' || direction === 'right'
+          ? Math.abs(centerY(rect) - centerY(currentRect))
+          : Math.abs(centerX(rect) - centerX(currentRect));
+      const score = primary + offset;
+
+      if (score < alignedScore) {
+        alignedScore = score;
+        aligned = candidate;
+      }
+    } else if (gap > movementSpan) {
+      // Clearly diagonal last resort, ranked mostly by how far off the
+      // axis it sits.
+      const score = primary + gap * 2;
+
+      if (score < diagonalScore) {
+        diagonalScore = score;
+        diagonal = candidate;
+      }
     }
   }
 
-  return best;
+  return aligned || diagonal;
 }
 
 function positionOf(

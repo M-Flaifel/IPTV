@@ -38,6 +38,11 @@ than silently relaxing it.
 - Virtualized channel grid with ~12 rendered rows maximum.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
+- Spatial focus movement ranks candidates by facing edges — never centers —
+  and keeps Left/Right within the row and Up/Down within the column, with a
+  far-diagonal fallback so arrows never get trapped (0.3.1; the 0.3.0 TV
+  round found Right selecting the control below a wide field instead of the
+  small button beside it).
 - Netflix/Disney/HBO-inspired visual redesign using CSS-only artwork.
 - Live channel playback: selecting a channel opens a **fullscreen** player
   takeover; a control bar (play/pause, back) auto-hides after ~4s of playback
@@ -74,8 +79,10 @@ than silently relaxing it.
 1. **Fullscreen player + remote media keys** — shipped in 0.2.0 and verified
    on the TV; media-key registration followed in 0.2.1 and is pending
    re-verification on device.
-2. **Playlists page** — shipped in 0.3.0 (browser-verified, pending TV
-   verification): dedicated view reachable from the top nav and Home;
+2. **Playlists page** — shipped in 0.3.0 (TV round approved everything
+   except left/right arrows; the edge-based navigation fix ships in 0.3.1
+   and is pending re-verification on device): dedicated view reachable
+   from the top nav and Home;
    multiple named playlists (add/edit/delete/switch); credential validation
    on save (`player_api.php` login check) with inline errors; form fields
    open the on-screen keyboard only on Enter; show-password toggle; pre-0.3
@@ -431,6 +438,12 @@ Manual checks:
       stopping at the edges; Enter on the last field reaches Save; Back
       cancels the edit and a second Back closes the form; the eye toggles
       the password.
+- [ ] Remote arrows (0.3.1 edge-based movement): Right from a playlist row
+      reaches Edit, then Delete, and Left steps back; Down moves row to row
+      and reaches the Add button; Right from the password field reaches the
+      eye toggle; Right is a no-op on the Add button and on the
+      name/server/username fields; Down from the hero CTA still reaches the
+      playlist Manage button on the disconnected Home.
 - [ ] Migration: a pre-0.3 `iptv-xtream-config` entry appears as one playlist
       named after the panel host, and the legacy key is removed.
 - [ ] Keyboard: Home CTA → ArrowDown reaches a section card → Enter opens it →
