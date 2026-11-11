@@ -1,24 +1,13 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'preact/hooks';
-import { CategoryNav } from './components/CategoryNav';
-import { ChannelList } from './components/ChannelList';
+import { useCallback, useState } from 'preact/hooks';
+import { CatalogBrowser } from './components/CatalogBrowser';
 import { HomeScreen } from './components/HomeScreen';
-import { PlayerOverlay } from './components/PlayerOverlay';
 import { PlaylistsScreen } from './components/PlaylistsScreen';
-import { SectionScreen } from './components/SectionScreen';
-import { TopNav } from './components/TopNav';
-import { SpatialNavigation } from './hooks/useSpatialNavigation';
-import { ALL_CATEGORY, ALL_CATEGORY_ID } from './types';
+import { SeriesDetail } from './components/SeriesDetail';
 import type {
-  Category,
-  Channel,
+  MediaItem,
   Playlist,
   Section,
+  SeriesSummary,
   ViewTarget,
   XtreamConfig,
 } from './types';
@@ -31,27 +20,18 @@ import {
   toXtreamConfig,
 } from './services/playlistStore';
 import {
+  resolvePlaybackSource,
+  resolveVodPlaybackSource,
+} from './services/player';
+import {
   fetchLiveCategories,
   fetchLiveStreams,
+  fetchSeries,
+  fetchSeriesCategories,
+  fetchVodCategories,
+  fetchVodStreams,
 } from './services/xtream';
-import {
-  readCachedCategories,
-  writeCachedCategories,
-} from './services/categoryCache';
-import { resolvePlaybackSource } from './services/player';
 import './app.css';
-
-function errorMessage(error: unknown): string {
-  if (error instanceof TypeError) {
-    return 'Could not reach the server. Check the address and your connection.';
-  }
-
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  return 'Something went wrong. Please try again.';
-}
 
 type View = 'home' | 'playlists' | Section;
 
@@ -172,9 +152,20 @@ export function App() {
     );
   }
 
+  if (view === 'movies') {
+    return (
+      <MovieBrowser
+        key={configKey(config)}
+        config={config}
+        onHome={goHome}
+        onNavigate={navigate}
+      />
+    );
+  }
+
   return (
-    <SectionScreen
-      section={view}
+    <SeriesBrowser
+      key={configKey(config)}
       config={config}
       onHome={goHome}
       onNavigate={navigate}
@@ -182,224 +173,102 @@ export function App() {
   );
 }
 
-interface BrowserProps {
+interface SectionBrowserProps {
   config: XtreamConfig;
   onHome: () => void;
   onNavigate: (target: ViewTarget) => void;
 }
 
-function Browser({ config, onHome, onNavigate }: BrowserProps) {
-  const accountKey = configKey(config);
-
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryStatus, setCategoryStatus] =
-    useState<'loading' | 'ready' | 'error'>('loading');
-  const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [categoriesReload, setCategoriesReload] = useState(0);
-
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [channelStatus, setChannelStatus] =
-    useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [channelError, setChannelError] = useState<string | null>(null);
-
-  const streamCache = useRef(new Map<string, Channel[]>());
-  const streamRequest = useRef(0);
-
-  const [playing, setPlaying] = useState<Channel | null>(null);
-  const restoreFocus = useRef<HTMLElement | null>(null);
-
-  const openPlayer = useCallback((channel: Channel) => {
-    const active = document.activeElement;
-    restoreFocus.current = active instanceof HTMLElement ? active : null;
-    setPlaying(channel);
-  }, []);
-
-  const closePlayer = useCallback(() => {
-    setPlaying(null);
-  }, []);
-
-  // Return focus to the card that opened the overlay once it unmounts.
-  useEffect(() => {
-    if (playing) {
-      return;
-    }
-
-    const target = restoreFocus.current;
-    if (!target) {
-      return;
-    }
-
-    restoreFocus.current = null;
-    if (target.isConnected) {
-      target.focus();
-    }
-  }, [playing]);
-
-  const handleBack = useCallback(() => {
-    if (playing) {
-      closePlayer();
-      return;
-    }
-
-    onHome();
-  }, [playing, closePlayer, onHome]);
-
-  // Entering the browser should not drop focus to <body>.
-  useLayoutEffect(() => {
-    const firstCategory = document.querySelector('[data-spatial="sidebar"]');
-    if (firstCategory instanceof HTMLElement) {
-      firstCategory.focus();
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    setCategoryStatus('loading');
-    setCategoryError(null);
-
-    const load = async () => {
-      // Paint cached headers immediately, then refresh them in the background.
-      const cached = await readCachedCategories(accountKey);
-      if (cancelled) {
-        return;
-      }
-
-      if (cached && cached.length > 0) {
-        setCategories(cached);
-        setCategoryStatus('ready');
-      }
-
-      try {
-        const fresh = await fetchLiveCategories(config);
-        if (cancelled) {
-          return;
-        }
-
-        setCategories(fresh);
-        setCategoryStatus('ready');
-        void writeCachedCategories(accountKey, fresh);
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        if (!cached || cached.length === 0) {
-          setCategoryError(errorMessage(error));
-          setCategoryStatus('error');
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [accountKey, config, categoriesReload]);
-
-  const loadStreams = useCallback(
-    async (categoryId: string | null) => {
-      const cacheKey = categoryId || ALL_CATEGORY_ID;
-      const cached = streamCache.current.get(cacheKey);
-      const requestId = ++streamRequest.current;
-
-      if (cached) {
-        setChannels(cached);
-        setChannelError(null);
-        setChannelStatus('ready');
-        return;
-      }
-
-      setChannels([]);
-      setChannelError(null);
-      setChannelStatus('loading');
-
-      try {
-        const streams = await fetchLiveStreams(
-          config,
-          categoryId || undefined
-        );
-
-        if (requestId !== streamRequest.current) {
-          return;
-        }
-
-        streamCache.current.set(cacheKey, streams);
-        setChannels(streams);
-        setChannelStatus('ready');
-      } catch (error) {
-        if (requestId !== streamRequest.current) {
-          return;
-        }
-
-        setChannelError(errorMessage(error));
-        setChannelStatus('error');
-      }
-    },
-    [config]
+/** Live TV: the Phase 3 browser, now a thin CatalogBrowser wrapper. */
+function Browser({ config, onHome, onNavigate }: SectionBrowserProps) {
+  return (
+    <CatalogBrowser
+      config={config}
+      accountKey={configKey(config)}
+      navActive="live"
+      eyebrow="Live TV"
+      allTitle="All Channels"
+      itemLabel="Play"
+      countNoun="channel"
+      idleText="Select a category to load channels."
+      loadCategories={fetchLiveCategories}
+      loadItems={fetchLiveStreams}
+      itemSource={resolvePlaybackSource}
+      itemSub={(item) => (item.number > 0 ? `Live · #${item.number}` : 'Live')}
+      onExit={onHome}
+      onNavigate={onNavigate}
+    />
   );
+}
 
-  const selectCategory = (id: string) => {
-    setActiveId(id);
-    void loadStreams(id === ALL_CATEGORY_ID ? null : id);
-  };
+/** Movies: VOD categories and playable movie rows. */
+function MovieBrowser({ config, onHome, onNavigate }: SectionBrowserProps) {
+  return (
+    <CatalogBrowser
+      config={config}
+      accountKey={`${configKey(config)}:vod`}
+      navActive="movies"
+      eyebrow="Movies"
+      allTitle="All Movies"
+      itemLabel="Play"
+      countNoun="movie"
+      idleText="Select a category to load movies."
+      loadCategories={fetchVodCategories}
+      loadItems={fetchVodStreams}
+      itemSource={(config, item) =>
+        resolveVodPlaybackSource(config, 'movie', item)
+      }
+      itemSub={(item) => item.badge || 'Movie'}
+      onExit={onHome}
+      onNavigate={onNavigate}
+    />
+  );
+}
 
-  const retryStreams = () => {
-    if (!activeId) {
-      return;
-    }
+/**
+ * Series: the list level is a CatalogBrowser whose rows drill into a
+ * SeriesDetail instead of playing. The detail renders *instead of* the list
+ * (one SpatialNavigation per screen), so Back chains
+ * player -> episodes -> series list -> Home.
+ */
+function SeriesBrowser({ config, onHome, onNavigate }: SectionBrowserProps) {
+  const [series, setSeries] = useState<SeriesSummary | null>(null);
 
-    void loadStreams(
-      activeId === ALL_CATEGORY_ID ? null : activeId
+  const openSeries = useCallback((item: MediaItem) => {
+    setSeries(item as SeriesSummary);
+  }, []);
+
+  const closeSeries = useCallback(() => {
+    setSeries(null);
+  }, []);
+
+  if (series) {
+    return (
+      <SeriesDetail
+        key={series.id}
+        config={config}
+        series={series}
+        onBack={closeSeries}
+        onNavigate={onNavigate}
+      />
     );
-  };
-
-  const activeCategory =
-    activeId === ALL_CATEGORY_ID
-      ? ALL_CATEGORY
-      : categories.find((category) => category.id === activeId) || null;
-
-  const title =
-    activeCategory === ALL_CATEGORY
-      ? 'All Channels'
-      : activeCategory
-        ? activeCategory.name
-        : 'Channels';
+  }
 
   return (
-    <main class="app">
-      <SpatialNavigation onBack={handleBack} />
-      <TopNav active="live" config={config} onNavigate={onNavigate} />
-
-      <div class="app__body">
-        <CategoryNav
-          categories={categories}
-          activeId={activeId}
-          status={categoryStatus}
-          error={categoryError}
-          onSelect={selectCategory}
-          onRetry={() => setCategoriesReload((value) => value + 1)}
-        />
-        <ChannelList
-          title={title}
-          channels={channels}
-          status={channelStatus}
-          error={channelError}
-          onRetry={retryStreams}
-          onPlay={openPlayer}
-        />
-      </div>
-
-      {playing ? (
-        <PlayerOverlay
-          key={playing.id}
-          channel={playing}
-          source={resolvePlaybackSource(config, playing)}
-          onClose={closePlayer}
-        />
-      ) : null}
-    </main>
+    <CatalogBrowser
+      config={config}
+      accountKey={`${configKey(config)}:series`}
+      navActive="series"
+      eyebrow="Series"
+      allTitle="All Series"
+      itemLabel="Open"
+      countNoun="series"
+      idleText="Select a category to load series."
+      loadCategories={fetchSeriesCategories}
+      loadItems={fetchSeries}
+      onActivate={openSeries}
+      onExit={onHome}
+      onNavigate={onNavigate}
+    />
   );
 }

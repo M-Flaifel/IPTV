@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import type { Channel } from '../types';
 import { createPlayerAdapter } from '../services/player';
 import type { PlaybackSource, PlayerAdapter } from '../services/player';
 import './PlayerOverlay.css';
 
 interface PlayerOverlayProps {
-  channel: Channel;
+  /** What is playing; `sub` is the caller's context line ("Live · #5"). */
+  item: { id: string; name: string };
+  sub: string;
   source: PlaybackSource;
   onClose: () => void;
 }
@@ -88,7 +89,8 @@ function logUnknownKey(event: KeyboardEvent): void {
 }
 
 export function PlayerOverlay({
-  channel,
+  item,
+  sub,
   source,
   onClose,
 }: PlayerOverlayProps) {
@@ -297,7 +299,7 @@ export function PlayerOverlay({
     return () => {
       adapter.close();
     };
-    // The overlay is keyed by channel, so the source is fixed for this mount.
+    // The overlay is keyed by item, so the source is fixed for this mount.
   }, []);
 
   // Mouse convenience for the browser preview: clicking the video toggles
@@ -315,7 +317,7 @@ export function PlayerOverlay({
       class={isAvPlay ? 'player player--avplay' : 'player'}
       role="dialog"
       aria-modal="true"
-      aria-label={`${channel.name} player`}
+      aria-label={`${item.name} player`}
       data-spatial-scope="player"
     >
       <div class="player__stage" ref={stageRef} onClick={onStageClick}>
@@ -341,10 +343,8 @@ export function PlayerOverlay({
       >
         <div class="player__meta">
           <p class="player__eyebrow">Now playing</p>
-          <h2 class="player__title">{channel.name}</h2>
-          <p class="player__sub">
-            {channel.number > 0 ? `Live · #${channel.number}` : 'Live'}
-          </p>
+          <h2 class="player__title">{item.name}</h2>
+          <p class="player__sub">{sub}</p>
         </div>
 
         <div class="player__actions">

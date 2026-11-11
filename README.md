@@ -37,7 +37,21 @@ than silently relaxing it.
 - Shared top navigation across Home, Live, Movies, and Series.
 - Virtualized single-column channel list (0.4.0): one row per channel with
   the channel number behind a hairline divider, the name in large display
-  type, and a Live marker; ~12 rendered rows maximum.
+  type, and a Live marker; ~12 rendered rows maximum. Since 0.5.0 the same
+  list component renders movies, series, and episodes: VOD rows carry a
+  ★ rating badge where channels carry the Live dot, and episodes carry none.
+- Movies & Series catalogs (0.5.0): `get_vod_categories` + lazy
+  `get_vod_streams` per category, `get_series_categories` + lazy
+  `get_series`, and `get_series_info` with an in-memory LRU. Live, Movies,
+  and the Series list share one `CatalogBrowser` (categories sidebar,
+  virtualized rows, player overlay, race guards). Movies play straight from
+  the list (`/movie/<user>/<pass>/<id>.<ext>`); series rows open a
+  seasons/episodes detail screen (`SeriesDetail`) that renders instead of
+  the list so exactly one spatial-navigation scope owns Back at a time:
+  player → episode list → series list → Home. Each section caches its
+  category headers in IndexedDB under its own key, and the selected
+  category plus its rows survive the round trip in a module-level LRU, so
+  Back from a series returns instantly with no refetch.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
 - Spatial focus movement ranks candidates by facing edges — never centers —
@@ -69,9 +83,6 @@ than silently relaxing it.
   on device). The browser build still previews the mock MP4. Tauri (libmpv)
   and Capacitor (ExoPlayer) are not wired. HLS via `hls.js` remains an
   unapproved fallback.
-- **Movies and Series catalogs.** Those views are intentional visual
-  placeholders. `get_vod_categories`, `get_vod_streams`,
-  `get_series_categories`, and `get_series` are not wired.
 - **Desktop and Android packaging.** Tauri and Capacitor wrappers do not exist
   yet. Production Xtream calls still depend on panel CORS; `src/services/http.ts`
   is the seam for a native transport.
@@ -94,11 +105,12 @@ than silently relaxing it.
    the home screen's design language — channel number, name, and Live marker
    per row — and the category sidebar is restyled to match (larger items and
    the shared eyebrow treatment).
-4. **Movies & Series VOD** — Xtream VOD endpoints (`get_vod_categories`,
-   `get_vod_streams`, `get_series_categories`, `get_series`,
-   `get_series_info`); movies play straight from the list; series get a
-   seasons/episodes detail screen. Artwork stays typography-only (no remote
-   posters or logos) per the performance constraints.
+4. **Movies & Series VOD** — shipped in 0.5.0 (pending the TV round):
+   Xtream VOD endpoints (`get_vod_categories`, `get_vod_streams`,
+   `get_series_categories`, `get_series`, `get_series_info`); movies play
+   straight from the list; series get a seasons/episodes detail screen.
+   Artwork stays typography-only (no remote posters or logos) per the
+   performance constraints.
 
 Do not describe the app as complete, playable, or VOD-capable until those gaps
 are actually closed.
@@ -184,8 +196,10 @@ should be justified against that hardware.
   - From the playlist form, Back cancels the open field's edit; Back again
     closes the form and returns to the playlist list. From the playlists page,
     Back returns to Home.
-  - From Live, Back returns to Home.
-  - From Movies/Series, Back returns to Home.
+  - From Live or Movies, Back returns to Home (after closing any open
+    player).
+  - From the series detail, Back returns to the series list with the same
+    category and rows restored; Back again returns Home.
 - Samsung remote media keys act only inside the player overlay, handled in
   the capture phase before spatial navigation: play `415`, pause `19`,
   play/pause `10252`, stop `413` (exits the player). They only arrive after
@@ -199,8 +213,8 @@ should be justified against that hardware.
 - Playlists entry focuses the first row; after the form closes, focus returns
   to the playlist that was saved or edited.
 - Returning from Live focuses the hero CTA (“Continue to …”).
-- Browser entry focuses the first category; Section screens focus “Back to
-  home”.
+- Catalog entries (Live, Movies, Series list) focus the first category; the
+  series detail focuses its first season pill once episodes load.
 - The playlist form is a spatial scope: arrows cannot leave it while it is
   open, and Back closes it. Fields render as buttons showing their values;
   Enter opens the input (the on-screen keyboard opens only then) with its
@@ -212,12 +226,19 @@ should be justified against that hardware.
 
 ### Data and caching
 
-- Fetch category headers with `get_live_categories`.
-- Cache categories in IndexedDB, keyed by `baseUrl|username`.
-- Fetch `get_live_streams` **only after a category is selected**.
-- Keep per-category stream results in a memory cache; never fetch all streams
-  up front.
+- Fetch category headers with the section's `get_*_categories` action
+  (live, vod, series).
+- Cache categories in IndexedDB, keyed by `baseUrl|username` for Live and
+  `baseUrl|username:vod` / `:series` for the VOD sections, so one catalog
+  never reads another's headers.
+- Fetch the section's rows (`get_live_streams`, `get_vod_streams`,
+  `get_series`) **only after a category is selected**.
+- Keep per-category row results in the browser's in-memory LRU; never fetch
+  all rows up front.
 - Prevent stale responses from overwriting a newer category selection.
+- `get_series_info` results live in a module-level LRU (cap 60) keyed by
+  panel + series id, so re-entering a series is instant and one panel's
+  episodes can never leak into another's.
 - Cache failures are non-fatal; the network remains the source of truth.
 - IndexedDB may be unavailable (private windows/webviews); always degrade
   gracefully.
@@ -254,8 +275,11 @@ should be justified against that hardware.
 index.html                 Theme pre-paint script, app mount
 src/main.tsx               Providers and root render
 src/app.tsx                Playlist state, view routing (home/playlists/
-                           live/movies/series), Live data flow
-src/types.ts               Shared types: Section, ViewTarget, Category, Channel
+                           live/movies/series), and the thin Live/Movies/
+                           Series wrappers around CatalogBrowser
+src/types.ts               Shared types: Section, ViewTarget, Category,
+                           MediaItem (Channel/Movie/SeriesSummary/
+                           SeriesEpisode), SeriesDetailState
 src/theme.ts               Theme list, persistence, next/previous theme
 src/context/InputModeContext.tsx
                            Mouse/Touch/Keyboard detection
@@ -264,11 +288,14 @@ src/hooks/useSpatialNavigation.ts
 src/services/http.ts       HTTP transport seam (fetch by default)
 src/services/tizenKeys.ts  Registers the remote's media keys via
                            tizen.tvinputdevice at startup
-src/services/xtream.ts     Xtream queries, normalization, credential check
-src/services/player.ts     Playback seam: source selection, engine detection
+src/services/xtream.ts     Xtream queries (live/VOD/series), normalization,
+                           series-info LRU, credential check
+src/services/player.ts     Playback seam: source selection (live + VOD URL
+                           builders), engine detection
 src/services/avplay.ts     Tizen AVPlay adapter and webapis typings
 src/services/html5Player.ts
                            Browser `<video>` fallback for the mock MP4
+src/services/errors.ts     Unknown-thrown-value to display copy mapping
 src/services/categoryCache.ts
                            IndexedDB category cache
 src/services/config.ts     Pure config helpers: URL normalization, validity,
@@ -286,14 +313,21 @@ src/components/PlaylistForm.tsx
 src/components/PlaylistsScreen.*
                            Playlist list (add/edit/delete/switch) and form
 src/components/CategoryNav.*
-                           Desktop rail and mobile pill strip
+                           Desktop rail and mobile pill strip; doubles as
+                           the seasons sidebar (title/showAll props)
 src/components/ChannelList.*
-                           Virtualized single-column channel list
+                           Virtualized single-column list, shared by
+                           channels, movies, series, and episodes
+src/components/CatalogBrowser.*
+                           Shared catalog screen: category sidebar +
+                           virtualized rows + player overlay, with
+                           remembered selection across drill-ins
+src/components/SeriesDetail.*
+                           Seasons sidebar + episode list for one series;
+                           renders instead of the series list
 src/components/PlayerOverlay.*
                            Fullscreen player: auto-hiding control bar,
                            remote media keys, focus restore
-src/components/SectionScreen.*
-                           Movies/Series placeholders
 src/components/ThemeToggle.*
                            Compact theme cycle control
 src/styles/themes.css      Color tokens and theme overrides
@@ -315,16 +349,32 @@ localStorage ──> playlists + active id ──> Home (default view)
                                             │                                 └─ PlayerOverlay
                                             │                                      └─ AVPlay on Tizen,
                                             │                                         mock MP4 elsewhere
-                                            ├─ Movies ──> placeholder
-                                            └─ Series ──> placeholder
+                                            ├─ Movies ──> IndexedDB categories (:vod)
+                                            │             └─ select category
+                                            │                  └─ memory cache or get_vod_streams
+                                            │                       └─ select movie
+                                            │                            └─ PlayerOverlay
+                                            │                                 └─ /movie/<user>/<pass>/<id>.<ext>
+                                            └─ Series ──> IndexedDB categories (:series)
+                                                        └─ select category
+                                                             └─ memory cache or get_series
+                                                                  └─ select series
+                                                                       └─ get_series_info (LRU)
+                                                                            └─ seasons sidebar +
+                                                                                 episode list
+                                                                                 └─ select episode
+                                                                                      └─ PlayerOverlay
+                                                                                           └─ /series/<user>/<pass>/<id>.<ext>
 ```
 
 - Home is the default view even when a playlist is already saved.
 - `lastSection` drives the hero CTA (“Continue to Live TV/Movies/Series”).
-- Live mounts with a `configKey`; changing the playlist remounts the browser.
+- Each catalog mounts with a `configKey`; changing the playlist remounts it.
 - Switching, editing, or deleting the active playlist re-derives the config;
   views that require one fall back to Home.
-- Movies/Series are routed through `SectionScreen` until their catalogs exist.
+- Live, Movies, and the Series list are the same `CatalogBrowser` with
+  different loaders and copy; the Series list's rows drill into
+  `SeriesDetail` instead of opening the player.
 
 ### Virtualization
 
@@ -334,7 +384,7 @@ localStorage ──> playlists + active id ──> Home (default view)
   JS-measured cycle always matches the CSS
 - `MAX_RENDERED_ROWS = 12`, `MAX_OVERSCAN = 2`
 - a spacer element sized by the virtualizer, absolutely positioned rows, one
-  channel per row
+  item per row (channel, movie, series, or episode)
 
 Do not replace this with plain mapping, pagination that grows the DOM, or
 image-heavy tiles.
@@ -364,9 +414,12 @@ Dev-only Xtream proxy:
 A mock Xtream panel for manual and automated testing lives at
 `scripts/mock-panel.mjs` (`node scripts/mock-panel.mjs [port]`, default 8788).
 Seed a playlist whose `baseUrl` is `http://127.0.0.1:8788` and the dev proxy
-will serve its canned categories and streams (one oversized category forces
-the virtualizer to recycle rows). It contains no real credentials and ships
-nothing into `src/` or the widget.
+will serve its canned data: live categories and streams (one oversized
+category forces the virtualizer to recycle rows), VOD categories and movies,
+series categories and shows, and `get_series_info` with two seasons (8 + 4
+episodes, including untitled and mkv rows). It serves no media — the browser
+preview always plays the bundled mock MP4. It contains no real credentials and
+ships nothing into `src/` or the widget.
 
 `public/mock-stream.mp4` is the bundled preview clip for the player shell. It is
 the CC0 “flower” sample from MDN's interactive examples. It exists only to test
@@ -471,12 +524,24 @@ Manual checks:
       visible, Enter activates the focused control.
 - [ ] Tizen path: with a fake `window.webapis.avplay` installed, the overlay
       uses AVPlay (no `<video>` element), opens the real
-      `/live/<user>/<pass>/<id>.m3u8` URL, and calls `stop`/`close` on Back.
+      `/live/<user>/<pass>/<id>.m3u8` URL (movies/episodes open
+      `/movie/…`/`/series/…` with the item's extension), and calls
+      `stop`/`close` on Back.
 - [ ] Tizen device: video is visible inside the stage while AVPlay plays (the
       overlay's AVPlay mode hides the shell and drops page backgrounds), and
       no error message flashes during initial buffering.
-- [ ] Movies/Series: placeholder screens render, nav active state is correct,
-      Back returns Home.
+- [ ] Movies (0.5.0): categories load into the sidebar; selecting one loads
+      the list with ★ rating badges (unrated movies show none); Enter plays a
+      movie fullscreen; Back closes the player with focus restored; Back
+      again returns Home. Only ~12 rows are in the DOM.
+- [ ] Series (0.5.0): categories load; Enter on a series opens the detail
+      with the seasons sidebar focused on the first season and its episodes
+      listed; selecting another season swaps episodes in place; Enter plays
+      an episode fullscreen (sub reads “Season N · Episode M”); Back closes
+      the player; Back again returns to the series list with the same
+      category selected and no refetch; Back a third time returns Home.
+- [ ] A series with no episodes shows “This series has no episodes.” with a
+      retry that refetches.
 - [ ] Theme: Left/Right cycles while the theme control is focused; focus stays
       on the control; all themes keep readable hero/card colors.
 - [ ] Input modes: hover styles only in Mouse mode; focus ring appears only in
@@ -509,17 +574,14 @@ Manual checks:
    Apps2Samsung debug console. Tauri (libmpv) and Capacitor (ExoPlayer)
    adapters come later. HLS via `hls.js` remains an unapproved desktop
    fallback.
-2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
-   preserving the current navigation and performance rules. See the roadmap:
-   this lands after the playlists page and the Live TV list redesign.
-3. **Production transport/CORS** — install a native transport via
+2. **Production transport/CORS** — install a native transport via
    `setHttpTransport` in packaged builds.
-4. **Tizen legacy JS** — handled for the widget build: tizen mode rewrites the
+3. **Tizen legacy JS** — handled for the widget build: tizen mode rewrites the
    entry to a classic deferred script and transpiles for Chromium 56. Pending
    on-device verification; see `DEFERRED.md`.
-5. **Self-hosted brand font** — deferred; ask the user before implementing.
+4. **Self-hosted brand font** — deferred; ask the user before implementing.
    The current stack uses system fonts only.
-6. **Plain-text credentials** — stored in `localStorage` by design for this
+5. **Plain-text credentials** — stored in `localStorage` by design for this
    stage. Treat as a known limitation; do not add sync or telemetry.
 
 ---

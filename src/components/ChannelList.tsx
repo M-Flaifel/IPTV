@@ -1,17 +1,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Channel } from '../types';
+import type { MediaItem } from '../types';
 import './ChannelList.css';
 
-type ChannelStatus = 'idle' | 'loading' | 'ready' | 'error';
+type ListStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface ChannelListProps {
   title: string;
-  channels: Channel[];
-  status: ChannelStatus;
+  /** Section label above the list title, e.g. "Live TV" or "Movies". */
+  eyebrow: string;
+  /** Singular noun for the count and empty copy, e.g. "channel". */
+  countNoun: string;
+  /** Verb for the row's accessible label, e.g. "Play" or "Open". */
+  itemLabel: string;
+  items: MediaItem[];
+  status: ListStatus;
   error: string | null;
+  idleText: string;
+  /** Overrides the default "No <noun> in this category." copy. */
+  emptyText?: string;
   onRetry: () => void;
-  onPlay: (channel: Channel) => void;
+  onActivate: (item: MediaItem) => void;
 }
 
 const ROW_HEIGHT_REM = 4.5;
@@ -26,13 +35,23 @@ interface ListLayout {
   overscan: number;
 }
 
+/** "series" is its own plural; everything else just takes an "s". */
+function pluralNoun(noun: string): string {
+  return noun === 'series' ? 'series' : `${noun}s`;
+}
+
 export function ChannelList({
   title,
-  channels,
+  eyebrow,
+  countNoun,
+  itemLabel,
+  items,
   status,
   error,
+  idleText,
+  emptyText,
   onRetry,
-  onPlay,
+  onActivate,
 }: ChannelListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<ListLayout>({
@@ -41,7 +60,7 @@ export function ChannelList({
   });
 
   const virtualizer = useVirtualizer({
-    count: channels.length,
+    count: items.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => layout.rowHeight,
     overscan: layout.overscan,
@@ -85,54 +104,55 @@ export function ChannelList({
       window.removeEventListener('resize', update);
     };
     // The list only exists once a category has loaded, so re-measure when the
-    // status or channel list changes to pick up the mounted scroll element.
-  }, [status, channels.length]);
+    // status or item list changes to pick up the mounted scroll element.
+  }, [status, items.length]);
 
   useEffect(() => {
     virtualizer.measure();
   }, [layout.rowHeight, virtualizer]);
 
-  // Layout effect: cached categories swap channels without a loading state,
+  // Layout effect: cached categories swap items without a loading state,
   // so the scroll element survives; resetting before paint avoids one frame
   // at the previous category's scroll offset.
   useLayoutEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
-  }, [channels]);
+  }, [items]);
 
   const virtualRows = virtualizer.getVirtualItems();
-  const showList = status === 'ready' && channels.length > 0;
+  const showList = status === 'ready' && items.length > 0;
+  const noun = pluralNoun(countNoun);
 
   return (
     <section class="channels" aria-labelledby="channels-title">
       <header class="channels__header">
         <div class="channels__heading">
-          <p class="channels__eyebrow">Live TV</p>
+          <p class="channels__eyebrow">{eyebrow}</p>
           <h2 class="channels__title" id="channels-title">
             {title}
           </h2>
         </div>
         <p class="channels__count">
           {status === 'ready'
-            ? `${channels.length} ${channels.length === 1 ? 'channel' : 'channels'}`
+            ? `${items.length} ${items.length === 1 ? countNoun : noun}`
             : ''}
         </p>
       </header>
 
       {status === 'idle' ? (
-        <p class="channels__status">Select a category to load channels.</p>
+        <p class="channels__status">{idleText}</p>
       ) : null}
 
       {status === 'loading' ? (
         <p class="channels__status" role="status">
-          Loading channels…
+          Loading {noun}…
         </p>
       ) : null}
 
       {status === 'error' ? (
         <div class="channels__status">
-          <p role="alert">{error || 'Could not load channels.'}</p>
+          <p role="alert">{error || `Could not load ${noun}.`}</p>
           <button
             type="button"
             class="channels__retry"
@@ -144,15 +164,17 @@ export function ChannelList({
         </div>
       ) : null}
 
-      {status === 'ready' && channels.length === 0 ? (
-        <p class="channels__status">No channels in this category.</p>
+      {status === 'ready' && items.length === 0 ? (
+        <p class="channels__status">
+          {emptyText || `No ${noun} in this category.`}
+        </p>
       ) : null}
 
       {showList ? (
         <div class="channel-list" ref={scrollRef}>
           <div class="channel-list__spacer" ref={virtualizer.containerRef}>
             {virtualRows.map((row) => {
-              const channel = channels[row.index];
+              const item = items[row.index];
 
               return (
                 <div
@@ -166,14 +188,23 @@ export function ChannelList({
                     type="button"
                     class="channel-list__item"
                     data-spatial="channels"
-                    aria-label={`Play ${channel.name}`}
-                    onClick={() => onPlay(channel)}
+                    aria-label={`${itemLabel} ${item.name}`}
+                    onClick={() => onActivate(item)}
                   >
                     <span class="channel-list__number">
-                      {channel.number > 0 ? channel.number : ''}
+                      {item.number > 0 ? item.number : ''}
                     </span>
-                    <span class="channel-list__name">{channel.name}</span>
-                    <span class="channel-list__live">Live</span>
+                    <span class="channel-list__name">{item.name}</span>
+                    {/* Channels carry no badge and render the Live dot;
+                        movies and series carry a rating string, episodes
+                        an empty string (no badge at all). */}
+                    {item.badge === undefined ? (
+                      <span class="channel-list__badge channel-list__badge--live">
+                        Live
+                      </span>
+                    ) : item.badge ? (
+                      <span class="channel-list__badge">{item.badge}</span>
+                    ) : null}
                   </button>
                 </div>
               );

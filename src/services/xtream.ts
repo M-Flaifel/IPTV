@@ -1,4 +1,12 @@
-import type { Category, Channel, XtreamConfig } from '../types';
+import type {
+  Category,
+  Channel,
+  Movie,
+  SeriesDetailData,
+  SeriesEpisode,
+  SeriesSummary,
+  XtreamConfig,
+} from '../types';
 import { httpGetText, httpGetTextResult } from './http';
 
 const API_FILE = 'player_api.php';
@@ -15,6 +23,37 @@ interface RawStream {
   num?: string | number;
   stream_icon?: string;
   category_id?: string | number;
+}
+
+interface RawVodStream {
+  stream_id?: string | number;
+  name?: string;
+  num?: string | number;
+  rating?: string | number;
+  container_extension?: string;
+}
+
+interface RawSeries {
+  series_id?: string | number;
+  name?: string;
+  num?: string | number;
+  rating?: string | number;
+}
+
+interface RawSeason {
+  season?: string | number;
+}
+
+interface RawEpisode {
+  id?: string | number;
+  episode_num?: string | number;
+  title?: string;
+  container_extension?: string;
+}
+
+interface RawSeriesInfo {
+  seasons?: unknown;
+  episodes?: unknown;
 }
 
 function buildQuery(
@@ -64,11 +103,8 @@ async function request(
   }
 }
 
-export async function fetchLiveCategories(
-  config: XtreamConfig
-): Promise<Category[]> {
-  const data = await request(config, { action: 'get_live_categories' });
-
+/** Shared category normalizer for every `get_*_categories` action. */
+function toCategories(data: unknown): Category[] {
   if (!Array.isArray(data)) {
     throw new Error(
       'Could not load categories. Check the server URL and credentials.'
@@ -92,6 +128,43 @@ export async function fetchLiveCategories(
   }
 
   return categories;
+}
+
+/** Star rating for the row badge; empty string when the panel has none. */
+function ratingBadge(value: unknown): string {
+  const rating = Number(value);
+
+  if (!Number.isFinite(rating) || rating <= 0) {
+    return '';
+  }
+
+  return `★ ${rating.toFixed(1)}`;
+}
+
+/** `container_extension` feeds the VOD playback URL; mp4 is the safe default. */
+function toExtension(value: unknown): string {
+  return String(value || 'mp4').replace(/^\.+/, '');
+}
+
+export async function fetchLiveCategories(
+  config: XtreamConfig
+): Promise<Category[]> {
+  const data = await request(config, { action: 'get_live_categories' });
+  return toCategories(data);
+}
+
+export async function fetchVodCategories(
+  config: XtreamConfig
+): Promise<Category[]> {
+  const data = await request(config, { action: 'get_vod_categories' });
+  return toCategories(data);
+}
+
+export async function fetchSeriesCategories(
+  config: XtreamConfig
+): Promise<Category[]> {
+  const data = await request(config, { action: 'get_series_categories' });
+  return toCategories(data);
 }
 
 export async function fetchLiveStreams(
@@ -133,6 +206,260 @@ export async function fetchLiveStreams(
   }
 
   return channels;
+}
+
+export async function fetchVodStreams(
+  config: XtreamConfig,
+  categoryId?: string
+): Promise<Movie[]> {
+  const params: Record<string, string> = { action: 'get_vod_streams' };
+
+  if (categoryId) {
+    params.category_id = categoryId;
+  }
+
+  const data = await request(config, params);
+
+  if (!Array.isArray(data)) {
+    throw new Error('Could not load movies for this category.');
+  }
+
+  const movies: Movie[] = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const raw = data[i] as RawVodStream;
+    const id = String(raw.stream_id || '');
+    const name = String(raw.name || '').trim();
+
+    if (!id || !name) {
+      continue;
+    }
+
+    const number = Number(raw.num);
+
+    movies.push({
+      id,
+      name,
+      number: Number.isFinite(number) ? number : 0,
+      badge: ratingBadge(raw.rating),
+      extension: toExtension(raw.container_extension),
+    });
+  }
+
+  return movies;
+}
+
+export async function fetchSeries(
+  config: XtreamConfig,
+  categoryId?: string
+): Promise<SeriesSummary[]> {
+  const params: Record<string, string> = { action: 'get_series' };
+
+  if (categoryId) {
+    params.category_id = categoryId;
+  }
+
+  const data = await request(config, params);
+
+  if (!Array.isArray(data)) {
+    throw new Error('Could not load series for this category.');
+  }
+
+  const series: SeriesSummary[] = [];
+
+  for (let i = 0; i < data.length; i++) {
+    const raw = data[i] as RawSeries;
+    const id = String(raw.series_id || '');
+    const name = String(raw.name || '').trim();
+
+    if (!id || !name) {
+      continue;
+    }
+
+    const number = Number(raw.num);
+
+    series.push({
+      id,
+      name,
+      number: Number.isFinite(number) ? number : 0,
+      badge: ratingBadge(raw.rating),
+    });
+  }
+
+  return series;
+}
+
+/**
+ * In-memory `get_series_info` cache, keyed by panel and series so switching
+ * playlists can never leak one panel's episodes into another. The Map's
+ * insertion order doubles as an LRU list with a soft cap.
+ */
+const seriesInfoCache = new Map<string, SeriesDetailData>();
+const SERIES_INFO_CACHE_LIMIT = 60;
+
+function seriesInfoCacheKey(
+  config: XtreamConfig,
+  seriesId: string
+): string {
+  const base = config.baseUrl.replace(/\/+$/, '');
+  return `${base}|${config.username}|${seriesId}`;
+}
+
+function readSeriesInfo(key: string): SeriesDetailData | null {
+  const cached = seriesInfoCache.get(key);
+
+  if (!cached) {
+    return null;
+  }
+
+  // Re-insert to refresh recency; the oldest entry sits first.
+  seriesInfoCache.delete(key);
+  seriesInfoCache.set(key, cached);
+
+  return cached;
+}
+
+function storeSeriesInfo(key: string, data: SeriesDetailData): void {
+  seriesInfoCache.delete(key);
+  seriesInfoCache.set(key, data);
+
+  while (seriesInfoCache.size > SERIES_INFO_CACHE_LIMIT) {
+    const oldest = seriesInfoCache.keys().next().value;
+
+    if (oldest === undefined) {
+      break;
+    }
+
+    seriesInfoCache.delete(oldest);
+  }
+}
+
+function seasonName(seasonId: string): string {
+  const n = Number(seasonId);
+
+  if (Number.isFinite(n)) {
+    return n === 0 ? 'Specials' : `Season ${n}`;
+  }
+
+  return `Season ${seasonId}`;
+}
+
+function sortSeasonIds(ids: string[]): void {
+  ids.sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    return (Number.isFinite(na) ? na : 0) - (Number.isFinite(nb) ? nb : 0);
+  });
+}
+
+export async function fetchSeriesInfo(
+  config: XtreamConfig,
+  seriesId: string
+): Promise<SeriesDetailData> {
+  const cacheKey = seriesInfoCacheKey(config, seriesId);
+  const cached = readSeriesInfo(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(config, {
+    action: 'get_series_info',
+    series_id: seriesId,
+  });
+
+  const info =
+    data && typeof data === 'object' ? (data as RawSeriesInfo) : null;
+
+  if (!info) {
+    throw new Error('Could not load episodes for this series.');
+  }
+
+  const rawSeasons = Array.isArray(info.seasons) ? info.seasons : [];
+  const rawEpisodes =
+    info.episodes && typeof info.episodes === 'object'
+      ? (info.episodes as Record<string, unknown>)
+      : {};
+
+  // A season can appear only in `seasons`, only as an `episodes` key, or in
+  // both; the sidebar shows the union.
+  const seenSeasons: Record<string, true> = {};
+  const seasonIds: string[] = [];
+
+  for (let i = 0; i < rawSeasons.length; i++) {
+    const raw = rawSeasons[i] as RawSeason;
+    const id = String((raw && raw.season) || '').trim();
+
+    if (!id || seenSeasons[id]) {
+      continue;
+    }
+
+    seenSeasons[id] = true;
+    seasonIds.push(id);
+  }
+
+  for (const key in rawEpisodes) {
+    if (
+      Object.prototype.hasOwnProperty.call(rawEpisodes, key) &&
+      !seenSeasons[key]
+    ) {
+      seenSeasons[key] = true;
+      seasonIds.push(key);
+    }
+  }
+
+  sortSeasonIds(seasonIds);
+
+  const episodesBySeason: Record<string, SeriesEpisode[]> = {};
+  let episodeCount = 0;
+
+  for (let s = 0; s < seasonIds.length; s++) {
+    const seasonId = seasonIds[s];
+    const seasonNumber = Number(seasonId);
+    const rawList = rawEpisodes[seasonId];
+    const episodes: SeriesEpisode[] = [];
+
+    if (Array.isArray(rawList)) {
+      for (let i = 0; i < rawList.length; i++) {
+        const raw = rawList[i] as RawEpisode;
+        const id = String((raw && raw.id) || '');
+
+        if (!id) {
+          continue;
+        }
+
+        const num = Number(raw.episode_num);
+        const number =
+          Number.isFinite(num) && num > 0 ? num : episodes.length + 1;
+
+        episodes.push({
+          id,
+          name: String(raw.title || '').trim() || `Episode ${number}`,
+          number,
+          badge: '',
+          extension: toExtension(raw.container_extension),
+          season: Number.isFinite(seasonNumber) ? seasonNumber : 0,
+        });
+      }
+    }
+
+    episodes.sort((a, b) => a.number - b.number);
+    episodesBySeason[seasonId] = episodes;
+    episodeCount += episodes.length;
+  }
+
+  if (episodeCount === 0) {
+    throw new Error('This series has no episodes.');
+  }
+
+  const detail: SeriesDetailData = {
+    seasons: seasonIds.map((id) => ({ id, name: seasonName(id) })),
+    episodesBySeason,
+  };
+
+  storeSeriesInfo(cacheKey, detail);
+
+  return detail;
 }
 
 /** The subset of `player_api.php`'s `user_info` the check reads. */

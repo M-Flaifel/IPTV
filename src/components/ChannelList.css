@@ -186,7 +186,7 @@ html[data-input-mode="mouse"] .channel-list__item:hover {
   white-space: nowrap;
 }
 
-.channel-list__live {
+.channel-list__badge {
   flex: 0 0 auto;
   margin-left: 1rem;
   color: var(--text-muted);
@@ -197,7 +197,7 @@ html[data-input-mode="mouse"] .channel-list__item:hover {
   text-transform: uppercase;
 }
 
-.channel-list__live::before {
+.channel-list__badge--live::before {
   content: "";
   display: inline-block;
   width: 0.4rem;
@@ -218,7 +218,7 @@ html[data-input-mode="mouse"] .channel-list__item:hover {
     font-size: 1.375rem;
   }
 
-  .channel-list__live {
+  .channel-list__badge {
     font-size: 0.75rem;
   }
 }
