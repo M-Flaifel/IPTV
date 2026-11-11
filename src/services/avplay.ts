@@ -6,8 +6,10 @@ import type {
 
 /** The subset of the Tizen AVPlay API this adapter uses. */
 export interface AvPlayListener {
-  onerror?: () => void;
+  onerror?: (error?: unknown) => void;
   onstreamcompleted?: () => void;
+  onbufferingstart?: () => void;
+  onbufferingcomplete?: () => void;
 }
 
 export interface AvPlayApi {
@@ -62,6 +64,38 @@ function absoluteUrl(url: string): string {
   }
 }
 
+/** Compact one-line description of an AVPlay event/error, for the debug log. */
+function describeAvPlayEvent(event: unknown): string {
+  if (event && typeof event === 'object') {
+    const record = event as Record<string, unknown>;
+    const parts: string[] = [];
+    for (const key of ['name', 'type', 'code', 'message'] as const) {
+      const value = record[key];
+      if (typeof value === 'string' || typeof value === 'number') {
+        parts.push(`${key}=${String(value)}`);
+      }
+    }
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+  }
+
+  return String(event);
+}
+
+/** Logs a stream URL without the embedded Xtream credentials. */
+function describeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname.replace(
+      /\/live\/[^/]+\/[^/]+\//,
+      '/live/***/***/'
+    )}`;
+  } catch {
+    return '<invalid url>';
+  }
+}
+
 export class AvPlayAdapter implements PlayerAdapter {
   readonly engine = 'avplay';
 
@@ -69,6 +103,8 @@ export class AvPlayAdapter implements PlayerAdapter {
   private listener: PlayerListener | null = null;
   private closed = false;
   private failed = false;
+  /** True once prepareAsync has settled (success or failure). */
+  private prepareSettled = false;
 
   constructor(avplay: AvPlayApi) {
     this.avplay = avplay;
@@ -82,6 +118,7 @@ export class AvPlayAdapter implements PlayerAdapter {
     this.listener = listener;
     this.closed = false;
     this.failed = false;
+    this.prepareSettled = false;
     listener.onStateChange('opening');
 
     const avplay = this.avplay;
@@ -93,17 +130,33 @@ export class AvPlayAdapter implements PlayerAdapter {
     // video in the top-left quarter of the screen.
     const scaleX = screen.width > 0 ? 1920 / screen.width : 1;
     const scaleY = screen.height > 0 ? 1080 / screen.height : 1;
+    const left = Math.max(0, Math.round(rect.left * scaleX));
+    const top = Math.max(0, Math.round(rect.top * scaleY));
+    const width = Math.max(0, Math.round(rect.width * scaleX));
+    const height = Math.max(0, Math.round(rect.height * scaleY));
+
+    console.info(
+      `avplay: open ${describeUrl(source.url)} display ${left},${top} ` +
+        `${width}x${height} screen ${screen.width}x${screen.height}`
+    );
 
     try {
       avplay.open(absoluteUrl(source.url));
-      avplay.setDisplayRect(
-        Math.max(0, Math.round(rect.left * scaleX)),
-        Math.max(0, Math.round(rect.top * scaleY)),
-        Math.max(0, Math.round(rect.width * scaleX)),
-        Math.max(0, Math.round(rect.height * scaleY))
-      );
+      avplay.setDisplayRect(left, top, width, height);
       avplay.setListener({
-        onerror: () => this.fail(STREAM_ERROR),
+        onerror: (error) => {
+          console.error(`avplay: onerror ${describeAvPlayEvent(error)}`);
+          // 2018 firmware emits a non-fatal error event while the first
+          // segments buffer and then recovers; playback continues. Hard
+          // prepare failures still surface through prepareAsync's error
+          // callback below, so events before it settles are logged only.
+          if (!this.prepareSettled) {
+            return;
+          }
+          this.fail(STREAM_ERROR);
+        },
+        onbufferingstart: () => console.info('avplay: buffering start'),
+        onbufferingcomplete: () => console.info('avplay: buffering complete'),
         onstreamcompleted: () => {
           if (!this.closed) {
             this.listener?.onStateChange('paused');
@@ -112,20 +165,30 @@ export class AvPlayAdapter implements PlayerAdapter {
       });
 
       await new Promise<void>((resolve, reject) => {
-        avplay.prepareAsync(() => {
-          if (this.closed) {
-            resolve();
-            return;
-          }
+        avplay.prepareAsync(
+          () => {
+            this.prepareSettled = true;
+            if (this.closed) {
+              resolve();
+              return;
+            }
 
-          try {
-            avplay.play();
-            this.listener?.onStateChange('playing');
-            resolve();
-          } catch (error) {
+            try {
+              avplay.play();
+              this.listener?.onStateChange('playing');
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          },
+          (error) => {
+            this.prepareSettled = true;
+            console.error(
+              `avplay: prepare failed ${describeAvPlayEvent(error)}`
+            );
             reject(error);
           }
-        }, reject);
+        );
       });
     } catch {
       this.fail(STREAM_ERROR);

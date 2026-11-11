@@ -25,10 +25,26 @@ export function PlayerOverlay({
     adapterRef.current = createPlayerAdapter();
   }
 
+  // AVPlay renders video on a hardware plane below every web layer, so the
+  // overlay's AVPlay mode must stop the page from painting over the video
+  // area. The rules live in PlayerOverlay.css, keyed off these classes.
+  const isAvPlay = adapterRef.current.engine === 'avplay';
+
   // The overlay owns the screen, so focus starts on its primary control.
   useLayoutEffect(() => {
     playRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!isAvPlay) {
+      return;
+    }
+
+    document.documentElement.classList.add('avplay-stage');
+    return () => {
+      document.documentElement.classList.remove('avplay-stage');
+    };
+  }, [isAvPlay]);
 
   useEffect(() => {
     const adapter = adapterRef.current;
@@ -68,7 +84,7 @@ export function PlayerOverlay({
 
   return (
     <div
-      class="player"
+      class={isAvPlay ? 'player player--avplay' : 'player'}
       role="dialog"
       aria-modal="true"
       aria-label={`${channel.name} player`}

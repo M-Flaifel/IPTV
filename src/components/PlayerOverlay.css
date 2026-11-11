@@ -155,6 +155,44 @@ html[data-input-mode="mouse"] .player__button:hover {
   opacity: 0.9;
 }
 
+/* ==========================================================================
+   AVPlay video plane
+
+   AVPlay renders video on a hardware plane BELOW every web layer. While it
+   plays, nothing may paint over the video rect: the page background, the app
+   shell behind this modal, and the modal's own scrim/panel/stage all turn
+   transparent. Without this, AVPlay playback is audio with a black screen.
+   The HTML5 engine keeps the opaque styling above: the <video> element
+   renders inside the page and letterboxes itself.
+   ========================================================================== */
+
+html.avplay-stage,
+html.avplay-stage body {
+  background-color: transparent;
+}
+
+html.avplay-stage .app {
+  background-color: transparent;
+}
+
+/* The shell is fully covered by this modal anyway; visibility:hidden stops
+   it from painting, so the video plane shows through the stage. */
+html.avplay-stage .app > :not(.player) {
+  visibility: hidden;
+}
+
+.player--avplay {
+  background-color: transparent;
+}
+
+.player--avplay .player__panel {
+  background-color: transparent;
+}
+
+.player--avplay .player__stage {
+  background-color: transparent;
+}
+
 @media (min-width: 1200px) {
   .player__stage {
     height: 62vh;

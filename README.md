@@ -357,6 +357,9 @@ Manual checks:
 - [ ] Tizen path: with a fake `window.webapis.avplay` installed, the overlay
       uses AVPlay (no `<video>` element), opens the real
       `/live/<user>/<pass>/<id>.m3u8` URL, and calls `stop`/`close` on Back.
+- [ ] Tizen device: video is visible inside the stage while AVPlay plays (the
+      overlay's AVPlay mode hides the shell and drops page backgrounds), and
+      no error message flashes during initial buffering.
 - [ ] Movies/Series: placeholder screens render, nav active state is correct,
       Back returns Home.
 - [ ] Theme: Left/Right cycles while the theme control is focused; focus stays
@@ -375,14 +378,17 @@ Manual checks:
 
 ## 6. Known gaps and deferred work
 
-1. **Tizen AVPlay on-device verification** — the widget builds and installs
-   unsigned via Apps2Samsung, but AVPlay has only been exercised against a
-   simulated `webapis` object. Test HLS playback, pause/resume, and Back
-   teardown on the 2018 TV, using Apps2Samsung's debug console for logs.
-   `setDisplayRect` now scales the CSS rect into AVPlay's 1920×1080 coordinate
-   space (2018 models run web apps at 960×540); confirm the video covers its
-   host element on the TV. Tauri (libmpv) and Capacitor (ExoPlayer) adapters
-   come later. HLS via `hls.js` remains an unapproved desktop fallback.
+1. **Tizen AVPlay on-device verification** — first device run: channels open
+   and audio plays, so the engine wiring and install loop work. Two fixes
+   shipped after it: the AVPlay video plane renders below every web layer, so
+   the overlay's AVPlay mode now hides the shell and drops page backgrounds
+   while playing (previously audio with a black screen); and non-fatal
+   `onerror` events that 2018 firmware emits during initial buffering no
+   longer flash the stream error. Still to verify on the TV: video visible
+   inside the stage, pause/resume, Back teardown, and the `avplay:` console
+   lines via Apps2Samsung's debug console. Tauri (libmpv) and Capacitor
+   (ExoPlayer) adapters come later. HLS via `hls.js` remains an unapproved
+   desktop fallback.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
    preserving the current navigation and performance rules.
 3. **Production transport/CORS** — install a native transport via
