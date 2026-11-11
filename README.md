@@ -72,7 +72,10 @@ than silently relaxing it.
 - Playback seam (`src/services/player.ts`) with runtime engine detection:
   - `window.webapis.avplay` present → native Tizen AVPlay adapter and the real
     Xtream stream URL.
-  - otherwise → standard `<video>` adapter driving the bundled mock MP4.
+  - otherwise → standard `<video>` adapter. In development (`npm run dev`)
+    it loads the **real panel URLs** so VOD playback can be tested from a
+    laptop browser (live HLS needs Safari — Chromium has no native HLS);
+    production browser builds keep the bundled mock MP4.
 
 ### Not implemented
 
@@ -427,9 +430,15 @@ the overlay, focus restore, and Back behavior until a real player engine lands.
 
 Playback picks its engine at runtime. A packaged Tizen app that exposes
 `window.webapis.avplay` uses the AVPlay adapter and the real Xtream stream; a
-browser preview never defines `webapis`, so it stays on the mock MP4. The
-`$WEBAPIS/webapis/webapis.js` bridge is injected automatically in tizen mode;
-see below.
+browser never defines `webapis`, so it uses the standard `<video>` element.
+In development the video element also gets the **real panel URLs** (mode
+`xtream` is forced while `import.meta.env.DEV`), so movies and episodes
+actually stream in the browser; live `.m3u8` channels generally only play
+in Safari, because Chromium has no native HLS engine — the TV remains the
+real test for live. The mock panel serves no media, so playing from it shows
+a playback error on purpose. Production browser builds (`npm run build`) keep
+the bundled mock MP4. The `$WEBAPIS/webapis/webapis.js` bridge is injected
+automatically in tizen mode; see below.
 
 ### Samsung Tizen packaging
 

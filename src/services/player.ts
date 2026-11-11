@@ -38,6 +38,16 @@ export interface PlayerAdapter {
 const MOCK_SOURCE_URL = '/mock-stream.mp4';
 
 /**
+ * `auto` uses the real Xtream URL only when Tizen's AVPlay is available, so
+ * a browser would always land on the bundled preview clip. Development
+ * forces the real panel URLs instead, so the app can be exercised against
+ * a live playlist from a laptop browser (VOD files play for real; live
+ * HLS needs Safari, since Chromium has no native HLS engine). Production
+ * keeps the preview: no HLS engine exists outside Tizen.
+ */
+const DEFAULT_MODE: PlaybackMode = import.meta.env.DEV ? 'xtream' : 'auto';
+
+/**
  * Xtream live streams are served from `/live/<user>/<pass>/<id>.<ext>`.
  * `.m3u8` is the container AVPlay expects on Tizen.
  */
@@ -85,7 +95,7 @@ export function buildVodStreamUrl(
 export function resolvePlaybackSource(
   config: XtreamConfig,
   channel: { id: string },
-  mode: PlaybackMode = 'auto'
+  mode: PlaybackMode = DEFAULT_MODE
 ): PlaybackSource {
   const useXtream = mode === 'xtream' || (mode === 'auto' && hasAvPlay());
 
@@ -108,7 +118,7 @@ export function resolveVodPlaybackSource(
   config: XtreamConfig,
   section: 'movie' | 'series',
   item: { id: string; extension?: string },
-  mode: PlaybackMode = 'auto'
+  mode: PlaybackMode = DEFAULT_MODE
 ): PlaybackSource {
   const useXtream = mode === 'xtream' || (mode === 'auto' && hasAvPlay());
 
