@@ -1,3 +1,13 @@
+/* ==========================================================================
+   Fullscreen player
+
+   The overlay is a fullscreen takeover: the stage fills the viewport (the
+   AVPlay hardware plane or the HTML5 <video> element), and a control bar
+   rides on top of the video, hiding itself after a few seconds of
+   inactivity. Properties stay Chromium 56-era: no inset shorthand, no
+   clamp(), no flex gap.
+   ========================================================================== */
+
 .player {
   position: fixed;
   top: 0;
@@ -5,30 +15,15 @@
   bottom: 0;
   left: 0;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background-color: rgba(0, 0, 0, 0.72);
-}
-
-.player__panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 72rem;
-  max-height: 100%;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background-color: var(--bg-primary);
+  background-color: #000;
 }
 
 .player__stage {
-  position: relative;
-  flex: 0 0 auto;
-  height: 56vh;
-  background-color: #000;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 
 .player__video {
@@ -39,7 +34,8 @@
   background-color: #000;
 }
 
-.player__preview {
+/* Small badge for the bundled browser preview clip. */
+.player__chip {
   position: absolute;
   top: 0.75rem;
   left: 0.75rem;
@@ -50,109 +46,105 @@
   background-color: rgba(0, 0, 0, 0.6);
   color: #fff;
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .player__notice {
   position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  left: 1rem;
+  top: 1.25rem;
+  left: 0;
+  right: 0;
   margin: 0;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background-color: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--art-movies);
+  border-bottom: 1px solid var(--art-movies);
+  background-color: rgba(0, 0, 0, 0.65);
   color: var(--text-main);
-  font-size: 0.8125rem;
   text-align: center;
 }
 
-.player__chrome {
+/* ==========================================================================
+   Control bar
+   ========================================================================== */
+
+.player__controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  flex: 0 0 auto;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 2rem;
   border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-secondary);
+  background-color: rgba(11, 26, 43, 0.92);
+}
+
+/* visibility (not display) keeps the bar's layout stable and blurs its
+   buttons, so focus falls back to the page while it is hidden. */
+.player__controls--hidden {
+  visibility: hidden;
 }
 
 .player__meta {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  margin-right: 1rem;
 }
 
 .player__eyebrow {
-  margin: 0 0 0.25rem;
-  color: var(--focus-ring);
+  margin: 0;
+  color: var(--text-muted);
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .player__title {
-  margin: 0;
-  overflow: hidden;
+  margin: 0.25rem 0 0;
+  color: var(--text-main);
   font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .player__sub {
-  margin: 0.2rem 0 0;
+  margin: 0.25rem 0 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: 0.9rem;
 }
 
 .player__actions {
   display: flex;
-  align-items: center;
   flex: 0 0 auto;
+  margin-left: 2rem;
 }
 
 .player__button {
-  min-height: 3rem;
+  margin: 0;
+  padding: 0.6rem 1.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background-color: var(--art-live);
+  color: #fff;
+  font-weight: 600;
+}
+
+.player__button + .player__button {
   margin-left: 0.75rem;
-  padding: 0 1.35rem;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background-color: var(--text-main);
-  color: var(--bg-primary);
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 .player__button--ghost {
-  border: 1px solid var(--border-subtle);
-  background-color: var(--bg-elevated);
+  border-color: var(--border-subtle);
+  background-color: transparent;
   color: var(--text-main);
-}
-
-.player__button:first-child {
-  margin-left: 0;
-}
-
-/* Hover is a mouse-only affordance. */
-html[data-input-mode="mouse"] .player__button {
-  cursor: pointer;
-}
-
-html[data-input-mode="mouse"] .player__button:hover {
-  opacity: 0.9;
 }
 
 /* ==========================================================================
@@ -160,8 +152,8 @@ html[data-input-mode="mouse"] .player__button:hover {
 
    AVPlay renders video on a hardware plane BELOW every web layer. While it
    plays, nothing may paint over the video rect: the page background, the app
-   shell behind this modal, and the modal's own scrim/panel/stage all turn
-   transparent. Without this, AVPlay playback is audio with a black screen.
+   shell behind this overlay, and the overlay root all turn transparent. The
+   control bar stays visible - it is supposed to paint over the video.
    The HTML5 engine keeps the opaque styling above: the <video> element
    renders inside the page and letterboxes itself.
    ========================================================================== */
@@ -175,7 +167,7 @@ html.avplay-stage .app {
   background-color: transparent;
 }
 
-/* The shell is fully covered by this modal anyway; visibility:hidden stops
+/* The shell is fully covered by this overlay anyway; visibility:hidden stops
    it from painting, so the video plane shows through the stage. */
 html.avplay-stage .app > :not(.player) {
   visibility: hidden;
@@ -183,59 +175,4 @@ html.avplay-stage .app > :not(.player) {
 
 .player--avplay {
   background-color: transparent;
-}
-
-.player--avplay .player__panel {
-  background-color: transparent;
-}
-
-.player--avplay .player__stage {
-  background-color: transparent;
-}
-
-@media (min-width: 1200px) {
-  .player__stage {
-    height: 62vh;
-  }
-}
-
-@media (max-width: 768px) {
-  .player {
-    padding: 0;
-  }
-
-  .player__panel {
-    max-width: none;
-    height: 100%;
-    border: 0;
-    border-radius: 0;
-  }
-
-  .player__stage {
-    flex: 1 1 auto;
-    height: auto;
-    min-height: 0;
-  }
-
-  .player__chrome {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .player__meta {
-    margin: 0 0 0.75rem;
-  }
-
-  .player__actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .player__button {
-    margin: 0.5rem 0 0;
-  }
-
-  .player__button:first-child {
-    margin-top: 0;
-  }
 }

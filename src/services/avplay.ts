@@ -112,7 +112,7 @@ export class AvPlayAdapter implements PlayerAdapter {
 
   async open(
     source: PlaybackSource,
-    host: HTMLElement,
+    _host: HTMLElement,
     listener: PlayerListener
   ): Promise<void> {
     this.listener = listener;
@@ -122,27 +122,25 @@ export class AvPlayAdapter implements PlayerAdapter {
     listener.onStateChange('opening');
 
     const avplay = this.avplay;
-    const rect = host.getBoundingClientRect();
 
-    // Samsung documents setDisplayRect coordinates as 1920x1080-based,
-    // regardless of the application's own resolution. 2018 models run web
-    // apps at a 960x540 CSS viewport, so an unscaled rect would leave the
-    // video in the top-left quarter of the screen.
-    const scaleX = screen.width > 0 ? 1920 / screen.width : 1;
-    const scaleY = screen.height > 0 ? 1080 / screen.height : 1;
-    const left = Math.max(0, Math.round(rect.left * scaleX));
-    const top = Math.max(0, Math.round(rect.top * scaleY));
-    const width = Math.max(0, Math.round(rect.width * scaleX));
-    const height = Math.max(0, Math.round(rect.height * scaleY));
+    // The player overlay is a fullscreen takeover, so the video rect is the
+    // whole screen. Samsung documents setDisplayRect coordinates as
+    // 1920x1080-based regardless of the app's own resolution, which makes
+    // this constant even on the 960x540 CSS viewport of 2018 models. The
+    // host element is only used by the HTML5 engine to mount its <video>.
+    const LEFT = 0;
+    const TOP = 0;
+    const WIDTH = 1920;
+    const HEIGHT = 1080;
 
     console.info(
-      `avplay: open ${describeUrl(source.url)} display ${left},${top} ` +
-        `${width}x${height} screen ${screen.width}x${screen.height}`
+      `avplay: open ${describeUrl(source.url)} fullscreen ${WIDTH}x${HEIGHT} ` +
+        `screen ${screen.width}x${screen.height}`
     );
 
     try {
       avplay.open(absoluteUrl(source.url));
-      avplay.setDisplayRect(left, top, width, height);
+      avplay.setDisplayRect(LEFT, TOP, WIDTH, HEIGHT);
       avplay.setListener({
         onerror: (error) => {
           console.error(`avplay: onerror ${describeAvPlayEvent(error)}`);

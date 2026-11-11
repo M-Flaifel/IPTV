@@ -27,8 +27,13 @@ than silently relaxing it.
 - Six themes via `data-theme`; theme is persisted in `localStorage`.
 - Mouse/Touch/Keyboard input detection with spatial (remote/keyboard) focus.
 - Netflix/Disney/HBO-inspired visual redesign using CSS-only artwork.
-- Live channel preview overlay: selecting a card opens a player shell and Back
-  closes it with focus restored to the card.
+- Live channel playback: selecting a channel opens a **fullscreen** player
+  takeover; a control bar (play/pause, back) auto-hides after ~4s of playback
+  and returns on any key press; Back closes it with focus restored to the
+  channel card that opened it.
+- Samsung remote media keys are wired in the player: play (415), pause (19),
+  play/pause (10252), and stop (413, exits the player). Space toggles in the
+  browser preview.
 - Playback seam (`src/services/player.ts`) with runtime engine detection:
   - `window.webapis.avplay` present → native Tizen AVPlay adapter and the real
     Xtream stream URL.
@@ -36,21 +41,41 @@ than silently relaxing it.
 
 ### Not implemented
 
-- **Real playback beyond Tizen AVPlay.** The AVPlay adapter is written and the
-  widget now packageable (`npm run build:tizen`), but playback has not been
-  verified on the TV itself. The browser build still previews the mock MP4.
-  Tauri (libmpv) and Capacitor (ExoPlayer) are not wired. HLS via `hls.js`
-  remains an unapproved fallback.
+- **Real playback beyond Tizen AVPlay.** The widget installs unsigned via
+  Apps2Samsung and AVPlay playback ran on the TV (audio verified; the video
+  plane transparency and buffering-error-flash fixes ship in 0.1.1, the
+  fullscreen takeover and media keys in 0.2.0, both pending re-verification
+  on device). The browser build still previews the mock MP4. Tauri (libmpv)
+  and Capacitor (ExoPlayer) are not wired. HLS via `hls.js` remains an
+  unapproved fallback.
 - **Movies and Series catalogs.** Those views are intentional visual
   placeholders. `get_vod_categories`, `get_vod_streams`,
   `get_series_categories`, and `get_series` are not wired.
 - **Desktop and Android packaging.** Tauri and Capacitor wrappers do not exist
   yet. Production Xtream calls still depend on panel CORS; `src/services/http.ts`
   is the seam for a native transport.
-- **Tizen on-device verification.** The tizen build emits a classic deferred
-  script for Chromium 56 and the widget installs unsigned via Apps2Samsung,
-  but nothing has run on the 2018 TV yet. The 960×540 CSS viewport is the main
-  verify item. See `DEFERRED.md`.
+- **Multiple playlists.** A single playlist is stored in `localStorage`; a
+  dedicated playlists page with named playlists, save-time credential
+  validation, Enter-to-open input fields, and a show-password toggle is
+  planned (see roadmap).
+
+### Roadmap (user-approved order)
+
+1. **Fullscreen player + remote media keys** — shipped in 0.2.0; verify on the
+   TV.
+2. **Playlists page** — dedicated view reachable from the top nav; multiple
+   named playlists (add/edit/delete/switch); credential validation on save
+   (`player_api.php` login check) with inline errors; form fields open the
+   on-screen keyboard only on Enter; show-password toggle. The home screen
+   keeps an "Add playlist" CTA instead of the inline form.
+3. **Live TV redesign** — channels become a virtualized single-column list
+   with larger type matching the home screen's design language; category
+   sidebar restyled to match.
+4. **Movies & Series VOD** — Xtream VOD endpoints (`get_vod_categories`,
+   `get_vod_streams`, `get_series_categories`, `get_series`,
+   `get_series_info`); movies play straight from the list; series get a
+   seasons/episodes detail screen. Artwork stays typography-only (no remote
+   posters or logos) per the performance constraints.
 
 Do not describe the app as complete, playable, or VOD-capable until those gaps
 are actually closed.
@@ -134,6 +159,11 @@ should be justified against that hardware.
     card that opened it.
   - From Live, Back returns to Home.
   - From Movies/Series, Back returns to Home.
+- Samsung remote media keys act only inside the player overlay, handled in
+  the capture phase before spatial navigation: play `415`, pause `19`,
+  play/pause `10252`, stop `413` (exits the player). While the player's
+  control bar is auto-hidden, any other key only reveals it (the press is
+  swallowed on purpose).
 - Home entry focus: hero primary CTA when keyboard mode is active. First-run
   focuses the Server field instead.
 - Returning from Live focuses the hero CTA (“Continue to …”).
@@ -207,7 +237,8 @@ src/components/CategoryNav.*
 src/components/ChannelGrid.*
                            Virtualized channel cards
 src/components/PlayerOverlay.*
-                           Modal preview player and focus restore
+                           Fullscreen player: auto-hiding control bar,
+                           remote media keys, focus restore
 src/components/SectionScreen.*
                            Movies/Series placeholders
 src/components/ThemeToggle.*
@@ -351,9 +382,13 @@ Manual checks:
 - [ ] Live: categories load; selecting a category fetches streams; only ~12
       rows are in the DOM; Back from the grid returns to the active category;
       Back from Live returns Home.
-- [ ] Player: Enter/click on a card opens the overlay and starts the preview;
-      Play/Pause toggles; arrows stay inside the overlay; Back closes it and
-      restores focus to the same card; the overlay has no animation or blur.
+- [ ] Player: Enter/click on a card opens a fullscreen takeover and starts
+      playback; Play/Pause toggles; the control bar hides after ~4s of
+      playing and returns on any key; arrows stay inside the player; Back
+      closes it and restores focus to the same card; no animation or blur.
+- [ ] Player keys: Space toggles; media keys play/pause/stop (415, 19, 10252,
+      413); Enter while the bar is hidden only reveals it; while the bar is
+      visible, Enter activates the focused control.
 - [ ] Tizen path: with a fake `window.webapis.avplay` installed, the overlay
       uses AVPlay (no `<video>` element), opens the real
       `/live/<user>/<pass>/<id>.m3u8` URL, and calls `stop`/`close` on Back.
@@ -379,18 +414,20 @@ Manual checks:
 ## 6. Known gaps and deferred work
 
 1. **Tizen AVPlay on-device verification** — first device run: channels open
-   and audio plays, so the engine wiring and install loop work. Two fixes
-   shipped after it: the AVPlay video plane renders below every web layer, so
-   the overlay's AVPlay mode now hides the shell and drops page backgrounds
-   while playing (previously audio with a black screen); and non-fatal
-   `onerror` events that 2018 firmware emits during initial buffering no
-   longer flash the stream error. Still to verify on the TV: video visible
-   inside the stage, pause/resume, Back teardown, and the `avplay:` console
-   lines via Apps2Samsung's debug console. Tauri (libmpv) and Capacitor
-   (ExoPlayer) adapters come later. HLS via `hls.js` remains an unapproved
-   desktop fallback.
+   and audio plays, so the engine wiring and install loop work. Fixes shipped
+   after it: the AVPlay video plane renders below every web layer, so the
+   overlay's AVPlay mode hides the shell and drops page backgrounds while
+   playing (0.1.1); non-fatal `onerror` events during initial buffering no
+   longer flash the stream error (0.1.1); the player is now a fullscreen
+   takeover with a constant `setDisplayRect(0,0,1920,1080)` and remote media
+   keys (0.2.0). Still to verify on the TV: video fills the screen, controls
+   auto-hide/reveal, play/pause from the remote, Back teardown, and the
+   `avplay:` console lines via Apps2Samsung's debug console. Tauri (libmpv)
+   and Capacitor (ExoPlayer) adapters come later. HLS via `hls.js` remains an
+   unapproved desktop fallback.
 2. **Movies/Series** — wire Xtream VOD/series endpoints and add catalogs while
-   preserving the current navigation and performance rules.
+   preserving the current navigation and performance rules. See the roadmap:
+   this lands after the playlists page and the Live TV list redesign.
 3. **Production transport/CORS** — install a native transport via
    `setHttpTransport` in packaged builds.
 4. **Tizen legacy JS** — handled for the widget build: tizen mode rewrites the
