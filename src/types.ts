@@ -31,6 +31,11 @@ export interface MediaItem {
   number: number;
   badge?: string;
   extension?: string;
+  /**
+   * Set only on global-search results, so the browser can route a movie to
+   * playback and a series to its detail screen. Catalog rows omit it.
+   */
+  section?: 'movie' | 'series';
 }
 
 export interface Channel extends MediaItem {

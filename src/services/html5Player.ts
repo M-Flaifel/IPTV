@@ -1,4 +1,5 @@
 import type {
+  PlaybackProgress,
   PlaybackSource,
   PlayerAdapter,
   PlayerListener,
@@ -70,6 +71,46 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     return this.video ? !this.video.paused : false;
   }
 
+  getProgress(): PlaybackProgress | null {
+    const video = this.video;
+
+    if (!video || this.closed) {
+      return null;
+    }
+
+    const duration =
+      Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : 0;
+    const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+
+    return {
+      current: duration > 0 ? Math.min(current, duration) : current,
+      duration,
+      seekable: duration > 0,
+    };
+  }
+
+  seekTo(seconds: number): void {
+    const video = this.video;
+
+    if (!video || this.closed) {
+      return;
+    }
+
+    const duration = video.duration;
+    const target =
+      Number.isFinite(duration) && duration > 0
+        ? Math.min(Math.max(seconds, 0), duration)
+        : Math.max(seconds, 0);
+
+    try {
+      video.currentTime = target;
+    } catch {
+      // Best-effort: some streams reject a seek outside their buffer.
+    }
+  }
+
   close(): void {
     this.closed = true;
     this.listener = null;
@@ -87,6 +128,20 @@ export class Html5PlayerAdapter implements PlayerAdapter {
     video.removeAttribute('src');
     video.load();
     video.remove();
+  }
+
+  /**
+   * The same <video> element follows the preview pane into the fullscreen
+   * stage (and back), so mini → fullscreen never reloads the stream.
+   */
+  setSurface(host: HTMLElement | null): void {
+    const video = this.video;
+
+    if (!video || !host || video.parentElement === host) {
+      return;
+    }
+
+    host.appendChild(video);
   }
 
   private readonly handlePlaying = () => {

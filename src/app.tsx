@@ -194,6 +194,7 @@ function Browser({ config, onHome, onNavigate }: SectionBrowserProps) {
       loadCategories={fetchLiveCategories}
       loadItems={fetchLiveStreams}
       itemSource={resolvePlaybackSource}
+      previewEnabled
       itemSub={(item) => (item.number > 0 ? `Live · #${item.number}` : 'Live')}
       onExit={onHome}
       onNavigate={onNavigate}
@@ -203,6 +204,30 @@ function Browser({ config, onHome, onNavigate }: SectionBrowserProps) {
 
 /** Movies: VOD categories and playable movie rows. */
 function MovieBrowser({ config, onHome, onNavigate }: SectionBrowserProps) {
+  const [series, setSeries] = useState<SeriesSummary | null>(null);
+
+  const openSeries = useCallback((item: MediaItem) => {
+    setSeries(item as SeriesSummary);
+  }, []);
+
+  const closeSeries = useCallback(() => {
+    setSeries(null);
+  }, []);
+
+  // A global search result can be a series, which drills into its detail
+  // instead of playing. Normal movie rows always resolve to a source.
+  if (series) {
+    return (
+      <SeriesDetail
+        key={series.id}
+        config={config}
+        series={series}
+        onBack={closeSeries}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+
   return (
     <CatalogBrowser
       config={config}
@@ -215,10 +240,14 @@ function MovieBrowser({ config, onHome, onNavigate }: SectionBrowserProps) {
       idleText="Select a category to load movies."
       loadCategories={fetchVodCategories}
       loadItems={fetchVodStreams}
+      searchSection="movie"
       itemSource={(config, item) =>
-        resolveVodPlaybackSource(config, 'movie', item)
+        item.section === 'series'
+          ? undefined
+          : resolveVodPlaybackSource(config, 'movie', item)
       }
       itemSub={(item) => item.badge || 'Movie'}
+      onActivate={openSeries}
       onExit={onHome}
       onNavigate={onNavigate}
     />
@@ -266,6 +295,13 @@ function SeriesBrowser({ config, onHome, onNavigate }: SectionBrowserProps) {
       idleText="Select a category to load series."
       loadCategories={fetchSeriesCategories}
       loadItems={fetchSeries}
+      searchSection="series"
+      itemSource={(config, item) =>
+        item.section === 'movie'
+          ? resolveVodPlaybackSource(config, 'movie', item)
+          : undefined
+      }
+      itemSub={(item) => item.badge || 'Movie'}
       onActivate={openSeries}
       onExit={onHome}
       onNavigate={onNavigate}

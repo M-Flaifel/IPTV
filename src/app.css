@@ -18,17 +18,37 @@
     "sidebar";
 }
 
+/* Live mini preview: the reserved pane takes its own cell, so the channel
+   list shrinks instead of being covered (AVPlay paints below the web layer). */
+.app__body--preview {
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "channels"
+    "preview"
+    "sidebar";
+}
+
 @media (min-width: 769px) {
   .app__body {
     grid-template-columns: 16rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     grid-template-areas: "sidebar channels";
   }
+
+  .app__body--preview {
+    grid-template-columns: 14rem minmax(0, 1fr) minmax(11rem, 28%);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "sidebar channels preview";
+  }
 }
 
 @media (min-width: 1200px) {
   .app__body {
     grid-template-columns: 17.5rem minmax(0, 1fr);
+  }
+
+  .app__body--preview {
+    grid-template-columns: 17.5rem minmax(0, 1fr) 26rem;
   }
 }
 

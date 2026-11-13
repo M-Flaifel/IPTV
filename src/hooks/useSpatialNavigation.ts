@@ -409,7 +409,13 @@ function isSpatial(element: EventTarget | null): element is HTMLElement {
 }
 
 export function useSpatialNavigation(
-  onBack?: () => void
+  onBack?: () => void,
+  /**
+   * Lets the screen claim Back before the channel-row rule below. Returning
+   * true means it handled the key. The live mini preview uses this so Back
+   * stops the preview instead of stepping to the category first.
+   */
+  onBackFromList?: () => boolean
 ): SpatialPosition {
   const { setMode } = useInputMode();
   const [position, setPosition] = useState<SpatialPosition>({
@@ -465,6 +471,11 @@ export function useSpatialNavigation(
           isSpatial(focused) &&
           focused.getAttribute('data-spatial') === 'channels'
         ) {
+          if (onBackFromList && onBackFromList()) {
+            event.preventDefault();
+            return;
+          }
+
           const target = findCategoryReturnTarget();
 
           if (target) {
@@ -537,7 +548,7 @@ export function useSpatialNavigation(
       document.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [setMode, track, onBack]);
+  }, [setMode, track, onBack, onBackFromList]);
 
   return position;
 }
@@ -545,8 +556,14 @@ export function useSpatialNavigation(
 /**
  * Isolated driver so focus movement does not re-render the app shell.
  */
-export function SpatialNavigation({ onBack }: { onBack?: () => void }) {
-  useSpatialNavigation(onBack);
+export function SpatialNavigation({
+  onBack,
+  onBackFromList,
+}: {
+  onBack?: () => void;
+  onBackFromList?: () => boolean;
+}) {
+  useSpatialNavigation(onBack, onBackFromList);
   return null;
 }
 

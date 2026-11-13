@@ -9,6 +9,18 @@ export interface PlaybackSource {
   kind: PlaybackKind;
   /** True when the URL is the bundled preview clip rather than a real stream. */
   preview: boolean;
+  /** True for a live channel; false for movies and episodes. */
+  live: boolean;
+}
+
+/** Playback position as the overlay's seek bar needs it. */
+export interface PlaybackProgress {
+  /** Seconds elapsed. */
+  current: number;
+  /** Seconds total; 0 when the engine cannot report one (live streams). */
+  duration: number;
+  /** True when seeking is meaningful. */
+  seekable: boolean;
 }
 
 export type PlaybackMode = 'auto' | 'mock' | 'xtream';
@@ -33,6 +45,16 @@ export interface PlayerAdapter {
   pause(): void;
   close(): void;
   isPlaying(): boolean;
+  /** Current position, or null while the engine cannot report one yet. */
+  getProgress(): PlaybackProgress | null;
+  /** Best-effort absolute seek, in seconds. */
+  seekTo(seconds: number): void;
+  /**
+   * Re-target rendering at `host` without reopening the stream. The mini
+   * player and the fullscreen overlay share one adapter, so moving between
+   * them must not restart playback. `null` detaches the surface.
+   */
+  setSurface(host: HTMLElement | null): void;
 }
 
 const MOCK_SOURCE_URL = '/mock-stream.mp4';
@@ -104,10 +126,11 @@ export function resolvePlaybackSource(
       url: buildLiveStreamUrl(config, channel.id),
       kind: 'hls',
       preview: false,
+      live: true,
     };
   }
 
-  return { url: MOCK_SOURCE_URL, kind: 'mp4', preview: true };
+  return { url: MOCK_SOURCE_URL, kind: 'mp4', preview: true, live: true };
 }
 
 /**
@@ -128,10 +151,11 @@ export function resolveVodPlaybackSource(
       url: buildVodStreamUrl(config, section, item.id, extension),
       kind: extension === 'm3u8' ? 'hls' : 'mp4',
       preview: false,
+      live: false,
     };
   }
 
-  return { url: MOCK_SOURCE_URL, kind: 'mp4', preview: true };
+  return { url: MOCK_SOURCE_URL, kind: 'mp4', preview: true, live: false };
 }
 
 export function createPlayerAdapter(): PlayerAdapter {

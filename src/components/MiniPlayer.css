@@ -1,0 +1,119 @@
+/* ==========================================================================
+   Mini preview player (live TV)
+
+   A reserved grid cell beside the channel list. The video plane (AVPlay) or
+   the shared <video> element fills it; the pane itself paints nothing, so on
+   Tizen the hardware plane below the web layer stays visible.
+   ========================================================================== */
+
+.mini-player {
+  position: relative;
+  grid-area: preview;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+}
+
+/* The 16:9 box is the surface the video engine targets. It must stay
+   transparent in AVPlay mode: the hardware plane is below the web layer. */
+.mini-player__surface {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  padding-top: 56.25%;
+  background-color: #000;
+}
+
+.mini-player__surface .player__video {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #000;
+}
+
+/* AVPlay draws below the page: the pane must be a transparent hole. */
+.mini-player--avplay,
+.mini-player--avplay .mini-player__surface {
+  background-color: transparent;
+}
+
+html[data-input-mode="mouse"] .mini-player {
+  cursor: pointer;
+}
+
+.mini-player__meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  margin-top: 0.6rem;
+  min-width: 0;
+}
+
+.mini-player__badge {
+  align-self: flex-start;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--art-live);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.mini-player__title {
+  margin-top: 0.35rem;
+  overflow: hidden;
+  color: var(--text-main);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-player__hint {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.mini-player__notice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background-color: rgba(0, 0, 0, 0.75);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* On Tizen the app shell must not paint behind the pane. Each surrounding
+   region keeps its own background so the layout looks unchanged. */
+html.avplay-mini,
+html.avplay-mini body,
+html.avplay-mini .app,
+html.avplay-mini .app__body {
+  background-color: transparent;
+}
+
+html.avplay-mini .topnav,
+html.avplay-mini .categories,
+html.avplay-mini .channels {
+  background-color: var(--bg-primary);
+}

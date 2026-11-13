@@ -19,6 +19,7 @@ import type {
   XtreamConfig,
 } from '../types';
 import { errorMessage } from '../services/errors';
+import { configKey } from '../services/config';
 import { resolveVodPlaybackSource } from '../services/player';
 import { fetchSeriesInfo } from '../services/xtream';
 
@@ -202,6 +203,10 @@ export function SeriesDetail({
           item={playing}
           sub={`Season ${playing.season} · Episode ${playing.number}`}
           source={resolveVodPlaybackSource(config, 'series', playing)}
+          skipIntro={{
+            panelKey: configKey(config),
+            seriesId: series.id,
+          }}
           onClose={closePlayer}
         />
       ) : null}

@@ -69,6 +69,42 @@ than silently relaxing it.
   browser preview. Samsung blocks media keys from web apps until they are
   registered with `tizen.tvinputdevice.registerKey()`, which
   `registerTizenMediaKeys()` does at startup (0.2.1).
+- Player seek bar (0.6.0): VOD playback shows elapsed/total time and a
+  draggable seeker, plus round rewind-10s, play/pause, and forward-10s
+  buttons. Progress is polled at 500ms only while the bar is visible; the
+  dot scrubs with a pointer, and Left/Right seek ±10s while the timeline
+  owns focus. Live channels show a `LIVE` badge instead and disable
+  rewind/forward.
+- Channel Up/Down (0.6.0): the Tizen channel keys (427/428) switch to the
+  previous/next live channel in the list being browsed and stop at the first
+  and last rows. Back restores focus to the channel that is actually
+  playing, scrolling the virtualized list to its row when the virtualizer
+  had recycled it.
+- Global search (0.7.0): Movies and Series each show one search box that
+  queries **both** catalogs and labels every hit `Movie · ★ x` or
+  `Series · ★ x`. Arabic titles match Arabic queries (tashkeel, tatweel, and
+  alef/yeh/teh-marbuta variants are folded; scripts are never mixed) and
+  Latin queries tolerate typos and letter transpositions. Results are ranked
+  (exact, prefix, substring, then edit-distance/trigram) and capped at 150.
+  The index is the one approved full-catalog fetch: built once, stored in
+  IndexedDB per `baseUrl|username`, reused across launches, and rebuilt only
+  by the Refresh button; if the fetch fails it indexes categories visited
+  this session instead. A movie hit plays; a series hit opens its detail,
+  and Back from there returns to the same results.
+- Mini preview player (0.8.0): in Live, the first Enter starts a preview with
+  audio in a reserved 16:9 pane beside the list and leaves focus in the list;
+  moving focus switches the stream after a 400ms debounce. Enter expands the
+  focused channel to fullscreen without reopening the stream (the same player
+  session moves its surface), and Back returns to the preview with playback
+  intact. Back from the preview stops audio and keeps focus on the row;
+  another Back returns to the category. Movies and series episodes still open
+  directly.
+- Learned skip intro (0.9.0): series episodes show a `Skip intro` pill in the
+  control bar during the first two minutes. The first press jumps forward 85s
+  and stores the resulting position per panel + series in `localStorage`;
+  later episodes jump straight to that learned offset. The pill hides after
+  one use or once playback passes the offset, and it never appears for movies
+  or live channels.
 - Playback seam (`src/services/player.ts`) with runtime engine detection:
   - `window.webapis.avplay` present → native Tizen AVPlay adapter and the real
     Xtream stream URL.
@@ -114,6 +150,20 @@ than silently relaxing it.
    straight from the list; series get a seasons/episodes detail screen.
    Artwork stays typography-only (no remote posters or logos) per the
    performance constraints.
+5. **Player seek bar + channel keys** — 0.6.0 (this batch): elapsed/total
+   time and a draggable seeker with rewind-10s, play/pause, and forward-10s
+   round buttons; the remote's Channel Up/Down switches live channels in
+   fullscreen, stopping at the list edges. See `PLAN.md`.
+6. **Global bilingual search** — shipped in 0.7.0: one search box across
+   movies and series, Arabic title normalization, and typo tolerance, backed
+   by the approved one-time full-catalog fetch described in `PLAN.md`.
+7. **Mini preview player** — shipped in 0.8.0: first Enter starts a live
+   preview with audio, focus changes switch it after a short debounce, the
+   next Enter goes fullscreen without reopening the stream, and Back returns
+   to the mini player before another Back stops it.
+8. **Per-series learned skip intro** — shipped in 0.9.0: a `Skip intro` pill
+   on episodes jumps forward and remembers the offset per panel + series on
+   the device for later episodes.
 
 Do not describe the app as complete, playable, or VOD-capable until those gaps
 are actually closed.
@@ -238,6 +288,12 @@ should be justified against that hardware.
   `get_series`) **only after a category is selected**.
 - Keep per-category row results in the browser's in-memory LRU; never fetch
   all rows up front.
+- **Approved exception (0.7.0):** the global search index fetches the whole
+  VOD and series catalogs once, builds a title index, and caches it in
+  IndexedDB keyed by `baseUrl|username` with a schema version. It must never
+  block normal browsing and falls back to indexing visited categories if the
+  fetch fails. This is the only place a full-catalog fetch is allowed; do not
+  generalize it.
 - Prevent stale responses from overwriting a newer category selection.
 - `get_series_info` results live in a module-level LRU (cap 60) keyed by
   panel + series id, so re-entering a series is instant and one panel's
@@ -531,6 +587,38 @@ Manual checks:
 - [ ] Player keys: Space toggles; media keys play/pause/stop (415, 19, 10252,
       413); Enter while the bar is hidden only reveals it; while the bar is
       visible, Enter activates the focused control.
+- [ ] Seek bar (0.6.0): a movie/episode shows elapsed / total time that
+      updates while playing; rewind/forward jump ~10s; the dot drags with a
+      mouse and commits the seek on release; with the timeline focused,
+      Left/Right seek ±10s without moving focus; the bar still auto-hides
+      after ~4s. A live channel shows `LIVE` and disables rewind/forward.
+- [ ] Channel keys (0.6.0): Channel Up/Down step live channels, stop at the
+      first/last row, and update the title; Back focuses the channel that is
+      playing even when the virtualizer had not rendered its row; movies and
+      episodes ignore the keys.
+- [ ] Search (0.7.0): Movies and Series each show the search box; a query
+      returns hits from both catalogs with `Movie`/`Series` badges and a
+      “N results” count; a typo (`acton`, `braking bad`) still matches; an
+      Arabic query matches Arabic titles only; Enter on a movie hit plays it,
+      on a series hit opens its detail; Back clears the query first (Tizen
+      Back also leaves the field), and Back again leaves the section.
+- [ ] Search index (0.7.0): the first search performs one full
+      `get_vod_streams` + `get_series` fetch; reloading reuses the stored
+      index with no refetch; Refresh rebuilds it; a failed fetch falls back to
+      categories visited this session and shows the partial-coverage note.
+- [ ] Mini player (0.8.0): in Live, the first Enter starts a preview with
+      audio and leaves focus in the list; moving focus to another row switches
+      the stream after ~400ms; Enter expands the focused channel to fullscreen
+      without restarting it; Back returns to the preview with the same element
+      and time, and another Back stops playback while keeping focus on the
+      row; Movies and series episodes still open directly; the pane never
+      overlaps the focus ring, and no layout overflows.
+- [ ] Skip intro (0.9.0): a series episode shows `Skip intro` during the first
+      two minutes; the first press jumps forward and stores the offset in
+      `iptv-intro-offsets` under `panelKey -> seriesId`; the next episode's
+      press seeks straight to that offset; the pill disappears after use or
+      past the offset; movies and live channels never show it; switching
+      playlists does not reuse offsets.
 - [ ] Tizen path: with a fake `window.webapis.avplay` installed, the overlay
       uses AVPlay (no `<video>` element), opens the real
       `/live/<user>/<pass>/<id>.m3u8` URL (movies/episodes open

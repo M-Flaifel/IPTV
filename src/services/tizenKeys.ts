@@ -33,6 +33,12 @@ const MEDIA_KEYS = [
   'MediaStop',
 ];
 
+/**
+ * Channel keys are also consumed by the TV unless registered. The player
+ * handles them as key codes 427 (up) and 428 (down) to step live channels.
+ */
+const CHANNEL_KEYS = ['ChannelUp', 'ChannelDown'];
+
 export function registerTizenMediaKeys(): void {
   const input = window.tizen && window.tizen.tvinputdevice;
 
@@ -40,9 +46,10 @@ export function registerTizenMediaKeys(): void {
     return;
   }
 
+  const keys = MEDIA_KEYS.concat(CHANNEL_KEYS);
   let registered = 0;
 
-  for (const key of MEDIA_KEYS) {
+  for (const key of keys) {
     try {
       input.registerKey(key);
       registered += 1;
@@ -55,6 +62,6 @@ export function registerTizenMediaKeys(): void {
   }
 
   if (registered > 0) {
-    console.info(`tizenkeys: registered ${registered} media key(s)`);
+    console.info(`tizenkeys: registered ${registered} key(s)`);
   }
 }

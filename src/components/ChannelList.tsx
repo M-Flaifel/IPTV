@@ -5,6 +5,14 @@ import './ChannelList.css';
 
 type ListStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+interface ChannelListSearch {
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  /** Rebuilds the cached full-catalog index. */
+  onRefresh: () => void;
+}
+
 interface ChannelListProps {
   title: string;
   /** Section label above the list title, e.g. "Live TV" or "Movies". */
@@ -19,6 +27,14 @@ interface ChannelListProps {
   idleText: string;
   /** Overrides the default "No <noun> in this category." copy. */
   emptyText?: string;
+  /** Overrides the default "Loading <noun>…" copy. */
+  loadingText?: string;
+  /** Extra line under the header, e.g. search provenance. */
+  note?: string | null;
+  /** Present on Movies/Series: the global search box and its refresh. */
+  search?: ChannelListSearch;
+  /** Live only: reports the row that just gained focus (mini preview follow). */
+  onRowFocus?: (item: MediaItem) => void;
   onRetry: () => void;
   onActivate: (item: MediaItem) => void;
 }
@@ -40,6 +56,19 @@ function pluralNoun(noun: string): string {
   return noun === 'series' ? 'series' : `${noun}s`;
 }
 
+/** Search results name their action; catalog rows use the section's verb. */
+function rowLabel(item: MediaItem, itemLabel: string): string {
+  if (item.section === 'series') {
+    return `Open ${item.name}`;
+  }
+
+  if (item.section === 'movie') {
+    return `Play ${item.name}`;
+  }
+
+  return `${itemLabel} ${item.name}`;
+}
+
 export function ChannelList({
   title,
   eyebrow,
@@ -50,6 +79,10 @@ export function ChannelList({
   error,
   idleText,
   emptyText,
+  loadingText,
+  note,
+  search,
+  onRowFocus,
   onRetry,
   onActivate,
 }: ChannelListProps) {
@@ -140,13 +173,57 @@ export function ChannelList({
         </p>
       </header>
 
+      {search ? (
+        <div class="channels__search">
+          <input
+            type="text"
+            class="channels__search-input"
+            data-spatial="search"
+            aria-label={search.placeholder}
+            placeholder={search.placeholder}
+            value={search.value}
+            autocomplete="off"
+            spellcheck={false}
+            onInput={(event) => search.onChange(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              // A focused input owns Backspace. Tizen Back (10009) and Escape
+              // clear the query and leave the field, so Back is never trapped
+              // behind the on-screen keyboard.
+              if (
+                event.key !== 'Escape' &&
+                event.key !== 'BrowserBack' &&
+                event.keyCode !== 10009
+              ) {
+                return;
+              }
+
+              event.preventDefault();
+              event.stopPropagation();
+              search.onChange('');
+              event.currentTarget.blur();
+            }}
+          />
+          <button
+            type="button"
+            class="channels__search-refresh"
+            data-spatial="search"
+            disabled={search.value.trim().length === 0}
+            onClick={search.onRefresh}
+          >
+            Refresh
+          </button>
+        </div>
+      ) : null}
+
+      {note ? <p class="channels__note">{note}</p> : null}
+
       {status === 'idle' ? (
         <p class="channels__status">{idleText}</p>
       ) : null}
 
       {status === 'loading' ? (
         <p class="channels__status" role="status">
-          Loading {noun}…
+          {loadingText || `Loading ${noun}…`}
         </p>
       ) : null}
 
@@ -188,7 +265,11 @@ export function ChannelList({
                     type="button"
                     class="channel-list__item"
                     data-spatial="channels"
-                    aria-label={`${itemLabel} ${item.name}`}
+                    data-item-id={item.id}
+                    aria-label={rowLabel(item, itemLabel)}
+                    onFocus={
+                      onRowFocus ? () => onRowFocus(item) : undefined
+                    }
                     onClick={() => onActivate(item)}
                   >
                     <span class="channel-list__number">

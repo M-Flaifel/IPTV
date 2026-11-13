@@ -1,4 +1,5 @@
 import type {
+  PlaybackProgress,
   PlaybackSource,
   PlayerAdapter,
   PlayerListener,
@@ -30,6 +31,13 @@ export interface AvPlayApi {
   play(): void;
   pause(): void;
   stop(): void;
+  getCurrentTime(): number;
+  getDuration(): number;
+  seekTo(
+    milliseconds: number,
+    successCallback?: () => void,
+    errorCallback?: (error: unknown) => void
+  ): void;
 }
 
 declare global {
@@ -105,6 +113,8 @@ export class AvPlayAdapter implements PlayerAdapter {
   private failed = false;
   /** True once prepareAsync has settled (success or failure). */
   private prepareSettled = false;
+  /** The DOM element whose rect the video plane should cover. */
+  private host: HTMLElement | null = null;
 
   constructor(avplay: AvPlayApi) {
     this.avplay = avplay;
@@ -112,35 +122,23 @@ export class AvPlayAdapter implements PlayerAdapter {
 
   async open(
     source: PlaybackSource,
-    _host: HTMLElement,
+    host: HTMLElement,
     listener: PlayerListener
   ): Promise<void> {
     this.listener = listener;
     this.closed = false;
     this.failed = false;
     this.prepareSettled = false;
+    this.host = host;
     listener.onStateChange('opening');
 
     const avplay = this.avplay;
 
-    // The player overlay is a fullscreen takeover, so the video rect is the
-    // whole screen. Samsung documents setDisplayRect coordinates as
-    // 1920x1080-based regardless of the app's own resolution, which makes
-    // this constant even on the 960x540 CSS viewport of 2018 models. The
-    // host element is only used by the HTML5 engine to mount its <video>.
-    const LEFT = 0;
-    const TOP = 0;
-    const WIDTH = 1920;
-    const HEIGHT = 1080;
-
-    console.info(
-      `avplay: open ${describeUrl(source.url)} fullscreen ${WIDTH}x${HEIGHT} ` +
-        `screen ${screen.width}x${screen.height}`
-    );
+    console.info(`avplay: open ${describeUrl(source.url)}`);
 
     try {
       avplay.open(absoluteUrl(source.url));
-      avplay.setDisplayRect(LEFT, TOP, WIDTH, HEIGHT);
+      this.applyDisplayRect();
       avplay.setListener({
         onerror: (error) => {
           console.error(`avplay: onerror ${describeAvPlayEvent(error)}`);
@@ -222,6 +220,101 @@ export class AvPlayAdapter implements PlayerAdapter {
 
   isPlaying(): boolean {
     return this.state() === 'PLAYING';
+  }
+
+  getProgress(): PlaybackProgress | null {
+    if (this.closed) {
+      return null;
+    }
+
+    try {
+      const currentMs = Number(this.avplay.getCurrentTime());
+      const durationMs = Number(this.avplay.getDuration());
+
+      if (!Number.isFinite(currentMs) || !Number.isFinite(durationMs)) {
+        return null;
+      }
+
+      const duration = durationMs > 0 ? durationMs / 1000 : 0;
+      const current = currentMs > 0 ? currentMs / 1000 : 0;
+
+      return {
+        current: duration > 0 ? Math.min(current, duration) : current,
+        duration,
+        seekable: duration > 0,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  seekTo(seconds: number): void {
+    if (this.closed) {
+      return;
+    }
+
+    const state = this.state();
+    // seekTo() only belongs to prepared states; IDLE/NONE throw.
+    if (state !== 'READY' && state !== 'PLAYING' && state !== 'PAUSED') {
+      return;
+    }
+
+    const target = Math.max(0, Math.round(seconds * 1000));
+
+    try {
+      this.avplay.seekTo(target);
+    } catch {
+      // Best-effort: the progress poll re-syncs the displayed time.
+    }
+  }
+
+  /**
+   * AVPlay paints below the web layer, so the host element is a transparent
+   * hole in the layout: measure it and move the hardware plane there. The
+   * fullscreen overlay's stage covers the viewport, and the mini pane covers
+   * only its reserved cell.
+   */
+  setSurface(host: HTMLElement | null): void {
+    this.host = host;
+
+    if (!host || this.closed) {
+      return;
+    }
+
+    this.applyDisplayRect();
+  }
+
+  private applyDisplayRect(): void {
+    const host = this.host;
+
+    if (!host) {
+      return;
+    }
+
+    const rect = host.getBoundingClientRect();
+    // Samsung documents setDisplayRect in a fixed 1920x1080 space regardless
+    // of the app's CSS viewport (960x540 on 2018 models).
+    const viewportWidth = window.innerWidth || screen.width || 1920;
+    const viewportHeight = window.innerHeight || screen.height || 1080;
+    const scaleX = 1920 / viewportWidth;
+    const scaleY = 1080 / viewportHeight;
+
+    const left = rect.width > 0 ? Math.round(rect.left * scaleX) : 0;
+    const top = rect.height > 0 ? Math.round(rect.top * scaleY) : 0;
+    const width = rect.width > 0 ? Math.round(rect.width * scaleX) : 1920;
+    const height = rect.height > 0 ? Math.round(rect.height * scaleY) : 1080;
+
+    console.info(
+      `avplay: display rect ${left},${top} ${width}x${height} ` +
+        `screen ${viewportWidth}x${viewportHeight}`
+    );
+
+    try {
+      this.avplay.setDisplayRect(left, top, width, height);
+    } catch {
+      // Older firmware rejects a rect while the player is not ready; the next
+      // setSurface call (resize or mode change) retries.
+    }
   }
 
   close(): void {

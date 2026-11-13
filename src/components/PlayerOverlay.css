@@ -75,9 +75,8 @@
   right: 0;
   bottom: 0;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 1.25rem 2rem;
+  flex-direction: column;
+  padding: 1rem 2rem 1.25rem;
   border-top: 1px solid var(--border-subtle);
   background-color: rgba(11, 26, 43, 0.92);
 }
@@ -87,6 +86,107 @@
 .player__controls--hidden {
   visibility: hidden;
 }
+
+/* ==========================================================================
+   Timeline
+   ========================================================================== */
+
+.player__timeline {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 1.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.player__time {
+  flex: 0 0 auto;
+  min-width: 3.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.player__time--end {
+  text-align: right;
+}
+
+.player__time--muted {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.player__live {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--art-live);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+/* The track is a 1.5rem hit area around a thin rail; the dot is positioned
+   by percentage so the fill and handle always agree. */
+.player__track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 1.5rem;
+  margin: 0 0.75rem;
+}
+
+html[data-input-mode="mouse"] .player__track {
+  cursor: pointer;
+}
+
+.player__track::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 0.25rem;
+  margin-top: -0.125rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--border-subtle);
+}
+
+.player__track-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 0.25rem;
+  margin-top: -0.125rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--focus-ring);
+}
+
+.player__track-dot {
+  position: absolute;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: -0.45rem 0 0 -0.45rem;
+  border: 2px solid var(--bg-primary);
+  border-radius: 50%;
+  background-color: var(--text-main);
+}
+
+/* ==========================================================================
+   Meta + controls row
+   ========================================================================== */
+
+.player__bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
 
 .player__meta {
   display: flex;
@@ -124,7 +224,70 @@
 .player__actions {
   display: flex;
   flex: 0 0 auto;
+  align-items: center;
   margin-left: 2rem;
+}
+
+/* Round transport controls: rewind, play/pause, forward. */
+.player__round {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  background-color: transparent;
+  color: var(--text-main);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.player__round + .player__round {
+  margin-left: 0.6rem;
+}
+
+.player__round--primary {
+  border-color: transparent;
+  background-color: var(--art-live);
+  color: #fff;
+}
+
+.player__round:disabled {
+  opacity: 0.4;
+}
+
+.player__round-text {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* CSS-drawn transport glyphs; no icon dependency and no remote assets. */
+.player__icon {
+  display: block;
+  color: currentColor;
+}
+
+.player__icon--play {
+  width: 0;
+  height: 0;
+  margin-left: 0.2rem;
+  border-top: 0.55rem solid transparent;
+  border-bottom: 0.55rem solid transparent;
+  border-left: 0.9rem solid currentColor;
+}
+
+.player__icon--pause {
+  width: 0.75rem;
+  height: 1rem;
+  border-left: 0.28rem solid currentColor;
+  border-right: 0.28rem solid currentColor;
+}
+
+.player__round + .player__button {
+  margin-left: 1rem;
 }
 
 .player__button {
@@ -145,6 +308,48 @@
   border-color: var(--border-subtle);
   background-color: transparent;
   color: var(--text-main);
+}
+
+/* Learned intro skip: an accent pill offered only early in an episode. */
+.player__button--skip {
+  padding: 0.5rem 1rem;
+  border-color: var(--focus-ring);
+  background-color: transparent;
+  color: var(--focus-ring);
+  font-size: 0.8125rem;
+}
+
+/* Narrow screens: stack the meta above the transport controls so the title
+   never fights the round buttons for width. */
+@media (max-width: 768px) {
+  .player__controls {
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .player__bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .player__title {
+    font-size: 1.25rem;
+  }
+
+  .player__actions {
+    margin-top: 0.75rem;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  /* The extra Skip intro pill must not push Back off a phone-width bar. */
+  .player__actions > * {
+    margin-bottom: 0.4rem;
+  }
+
+  .player__round {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 /* ==========================================================================
